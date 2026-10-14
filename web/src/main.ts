@@ -13,6 +13,11 @@ import { LEVELS, currentElection, getState, initState, setState, subscribe, view
 
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
 
+/** A loading bar appears only if a unit takes longer than this (on a normal connection: never). */
+const LOADING_BAR_DELAY_MS = 150;
+/** How long the pointer must rest on a unit before its file is fetched in advance. */
+const PREFETCH_DELAY_MS = 120;
+
 async function main(): Promise<void> {
   document.title = t.appTitle;
   const [meta, index] = await Promise.all([loadMeta(), loadUnitIndex()]);
@@ -43,10 +48,37 @@ async function main(): Promise<void> {
     const level = levelOf(unitId);
     setState(level ? { unit: unitId, level } : { unit: unitId });
   };
-  const map = new ElectionMap(byId('map'), byId('map-tooltip'), select, meta.attribution);
+
+  /** When the pointer rests on a unit, fetch its file so a click shows it at once (files are small and cached). */
+  let prefetchTimer: number | undefined;
+  const prefetch = (unitId: string) => {
+    window.clearTimeout(prefetchTimer);
+    prefetchTimer = window.setTimeout(() => {
+      if (units.has(unitId)) loadUnit(unitId).catch(() => undefined);
+    }, PREFETCH_DELAY_MS);
+  };
+
+  const map = new ElectionMap(byId('map'), byId('map-tooltip'), { onSelect: select, onHover: prefetch }, meta.attribution);
   createSearch(byId('search'), meta, index.units, select);
+  const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
   let electionFile: ElectionFile | null = null;
+
+  /** The unit whose outline and sidebar are on screen. A newly selected unit replaces it only
+   *  once its file has arrived, so map and sidebar never disagree and the panel never blanks. */
+  let shownUnit: string | null = null;
+  let loadingTimer: number | undefined;
+  const setLoading = (on: boolean) => {
+    window.clearTimeout(loadingTimer);
+    if (on) loadingTimer = window.setTimeout(() => sidebarPanel.classList.add('loading'), LOADING_BAR_DELAY_MS);
+    else sidebarPanel.classList.remove('loading');
+  };
+  const showSelection = (unitId: string | null) => {
+    const entry = unitId ? units.get(unitId) : undefined;
+    const layer = entry ? levelOfType(entry.type) : null;
+    void map.select(entry && layer ? { sourceLayer: layer, id: entry.id } : null);
+    shownUnit = unitId;
+  };
 
   const drawControls = () => {
     const state = getState();
@@ -77,18 +109,23 @@ async function main(): Promise<void> {
     }
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
     if (electionChanged || previous?.level !== state.level) drawControls();
-    if (!previous || previous.unit !== state.unit) {
-      const entry = state.unit ? units.get(state.unit) : undefined;
-      const layer = entry ? levelOfType(entry.type) : null;
-      void map.select(entry && layer ? { sourceLayer: layer, id: entry.id } : null);
-    }
 
-    if (!state.unit) return renderSidebarMessage(sidebar, t.selectPrompt);
-    if (!units.has(state.unit)) return renderSidebarMessage(sidebar, t.loadError);
-    if (!previous || previous.unit !== state.unit) renderSidebarMessage(sidebar, t.loading);
+    if (!state.unit || !units.has(state.unit)) {
+      setLoading(false);
+      showSelection(null);
+      return renderSidebarMessage(sidebar, state.unit ? t.loadError : t.selectPrompt);
+    }
+    const unitChanged = state.unit !== shownUnit;
+    if (unitChanged) {
+      // Keep the previous unit on screen while the new one loads; nothing to keep on first load.
+      if (shownUnit === null) renderSidebarMessage(sidebar, t.loading);
+      setLoading(true);
+    }
     try {
       const unit = await loadUnit(state.unit);
       if (token !== latestRender) return; // a newer render started while loading
+      setLoading(false);
+      if (unitChanged) showSelection(state.unit);
       renderSidebar(sidebar, {
         meta,
         units,
@@ -102,7 +139,11 @@ async function main(): Promise<void> {
       });
     } catch (error) {
       console.error(error);
-      if (token === latestRender) renderSidebarMessage(sidebar, t.loadError);
+      if (token === latestRender) {
+        setLoading(false);
+        showSelection(null);
+        renderSidebarMessage(sidebar, t.loadError);
+      }
     }
   }
 

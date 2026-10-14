@@ -9,15 +9,37 @@ import { tilesUrl } from '../lib/api';
 import { dateToInt } from '../lib/format';
 import type { ElectionFile, IsoDate } from '../lib/types';
 import { LEVELS, type Level } from '../state';
-import { COUNTY_OVERLAY, NO_DATA_COLOR, SOURCE, buildStyle, fillLayer, lineLayer, selectedLayer, validityFilter, winnerColor } from './style';
+import {
+  COUNTY_OVERLAY,
+  FILL_OPACITY,
+  NO_DATA_COLOR,
+  OVERLAY_OPACITY,
+  SOURCE,
+  buildStyle,
+  fillLayer,
+  hoverLayer,
+  lineLayer,
+  selectedLayer,
+  validityFilter,
+  winnerColor,
+} from './style';
 
 setWorkerUrl(workerUrl);
 const protocol = new Protocol();
 addProtocol('pmtiles', protocol.tile);
 
-interface FeatureRef {
+/** Levels drawn with the county borders on top, for orientation. */
+const WITH_COUNTY_OVERLAY: Level[] = ['settlement', 'jaras', 'smd'];
+
+export interface FeatureRef {
   sourceLayer: Level;
   id: string;
+}
+
+export interface MapCallbacks {
+  onSelect: (unitId: string) => void;
+  /** The pointer came to rest on a unit (used to prefetch its data). */
+  onHover?: (unitId: string) => void;
 }
 
 export class ElectionMap {
@@ -30,7 +52,7 @@ export class ElectionMap {
   constructor(
     container: HTMLElement,
     private readonly tooltip: HTMLElement,
-    private readonly onSelect: (unitId: string) => void,
+    private readonly callbacks: MapCallbacks,
     attribution: string[],
   ) {
     const url = tilesUrl();
@@ -48,6 +70,8 @@ export class ElectionMap {
       attributionControl: false,
     });
     this.map.touchZoomRotate.disableRotation();
+    // Dev builds only: the MapLibre instance for debugging in the browser console.
+    if (import.meta.env.DEV) (globalThis as { __electionMap?: MapLibreMap }).__electionMap = this.map;
     if (attribution.length) this.map.addControl(new AttributionControl({ compact: true, customAttribution: attribution }), 'bottom-right');
     this.ready = new Promise((resolve) => this.map.once('load', () => resolve()));
     archive
@@ -64,22 +88,23 @@ export class ElectionMap {
     const color = file ? winnerColor(file) : NO_DATA_COLOR;
     for (const level of LEVELS) {
       const filter = validityFilter(level, day, districtSet);
-      for (const layer of [fillLayer(level), lineLayer(level), selectedLayer(level)]) this.map.setFilter(layer, filter);
+      for (const layer of [fillLayer(level), lineLayer(level), hoverLayer(level), selectedLayer(level)]) this.map.setFilter(layer, filter);
       this.map.setPaintProperty(fillLayer(level), 'fill-color', color);
     }
     this.map.setFilter(COUNTY_OVERLAY, validityFilter('county', day, null));
   }
 
+  /** Show one level. Only constant opacities change, so nothing is re-processed (no flash). */
   async setLevel(level: Level): Promise<void> {
     await this.ready;
     this.level = level;
     for (const l of LEVELS) {
-      const visibility = l === level ? 'visible' : 'none';
-      for (const layer of [fillLayer(l), lineLayer(l), selectedLayer(l)]) this.map.setLayoutProperty(layer, 'visibility', visibility);
+      this.map.setPaintProperty(fillLayer(l), 'fill-opacity', l === level ? FILL_OPACITY : 0);
+      this.map.setPaintProperty(lineLayer(l), 'line-opacity', l === level ? 1 : 0);
     }
-    const overlay = level === 'settlement' || level === 'jaras' || level === 'smd' ? 'visible' : 'none';
-    this.map.setLayoutProperty(COUNTY_OVERLAY, 'visibility', overlay);
+    this.map.setPaintProperty(COUNTY_OVERLAY, 'line-opacity', WITH_COUNTY_OVERLAY.includes(level) ? OVERLAY_OPACITY : 0);
     this.setHovered(null);
+    this.tooltip.hidden = true;
   }
 
   /** Outline a unit (sourceLayer = the tile layer holding it), or clear with null. */
@@ -91,24 +116,33 @@ export class ElectionMap {
   }
 
   private bindEvents(level: Level): void {
+    // Every level's layers are rendered (transparent when not shown) and so still report
+    // features under the pointer: only the shown level may react.
     const layer = fillLayer(level);
     this.map.on('mousemove', layer, (e: MapLayerMouseEvent) => {
+      if (level !== this.level) return;
       const feature = e.features?.[0];
       if (!feature || feature.id === undefined) return;
-      this.setHovered({ sourceLayer: level, id: String(feature.id) });
+      const id = String(feature.id);
+      if (this.hovered?.id !== id) {
+        this.setHovered({ sourceLayer: level, id });
+        this.callbacks.onHover?.(id);
+      }
       this.map.getCanvas().style.cursor = 'pointer';
       this.tooltip.textContent = String(feature.properties?.name ?? feature.id);
       this.tooltip.style.transform = `translate(${e.point.x + 14}px, ${e.point.y + 14}px)`;
       this.tooltip.hidden = false;
     });
     this.map.on('mouseleave', layer, () => {
+      if (level !== this.level) return;
       this.setHovered(null);
       this.map.getCanvas().style.cursor = '';
       this.tooltip.hidden = true;
     });
     this.map.on('click', layer, (e: MapLayerMouseEvent) => {
+      if (level !== this.level) return;
       const id = e.features?.[0]?.id;
-      if (id !== undefined && level === this.level) this.onSelect(String(id));
+      if (id !== undefined) this.callbacks.onSelect(String(id));
     });
   }
 

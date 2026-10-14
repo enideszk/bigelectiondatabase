@@ -269,7 +269,42 @@ input:focus-visible,
 
 /* ---- side panel ---------------------------------------------------------------------- */
 
+/* Loading bar: shown only when a selected unit takes a while to load (main.ts adds .loading). */
+#sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 30;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent) 0 0 / 40% 100% no-repeat;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+#sidebar.loading::before {
+  opacity: 1;
+  animation: loading-bar 1s linear infinite;
+}
+
+#sidebar.loading #sidebar-content {
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+@keyframes loading-bar {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
 #sidebar {
+  position: relative;
   width: var(--sidebar-width);
   min-width: var(--sidebar-min-width);
   flex: none;

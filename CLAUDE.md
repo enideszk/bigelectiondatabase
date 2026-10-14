@@ -120,6 +120,17 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
 - State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=`.
 - Map tiles: one PMTiles file, one layer per level, every geometry *version* is a feature with
   `vf`/`vt` (YYYYMMDD ints); the map filters by the selected election date.
+- **Map levels are switched by constant opacities, never by `visibility`** (`map/style.ts`,
+  `ElectionMap.setLevel`). MapLibre builds no render data for hidden layers, so toggling visibility
+  re-processes every tile and the map flashes; opacity changes re-process nothing (measured: 0 tile
+  reloads per switch). Keep fill/line opacities constant (a feature-state expression there is
+  data-driven and would re-process tiles too): hover is a separate layer. All levels are rendered,
+  so map event handlers must ignore every level but the shown one.
+- **Selection swaps atomically** (`main.ts`): a newly selected unit replaces the old outline and
+  sidebar only once its file has loaded; a loading bar appears after 150 ms; resting the pointer
+  on a unit for 120 ms prefetches its file. Dev builds expose the map as `window.__electionMap`.
+- `npm run build` copies `public/data` (thousands of files) into `dist/`: ~60 s over the share,
+  fast when run on Server-PC itself.
 
 **Fixtures**: everything in `data/fixtures/` is FAKE (codes 99xxx, county 91/92, country XX). Edit
 `make_fixtures.py` and re-run it rather than editing the CSVs by hand. Fake and real data must
