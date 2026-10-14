@@ -4,7 +4,7 @@
  * shape and pick one at startup.
  */
 
-import type { LineageType } from './types';
+import type { ElectionType, LineageType } from './types';
 import type { Level } from '../state';
 
 export const t = {
@@ -71,9 +71,19 @@ export const t = {
   legend: 'Largest list',
   noData: 'No data',
   noResults: 'No results in this election',
+  /** Map control, in this order. */
+  electionTypes: {
+    parliament: 'Parliamentary',
+    local: 'Municipal',
+    ep: 'EU Parliament',
+    referendum: 'Referendum',
+  } satisfies Record<ElectionType, string>,
+  notLoaded: 'No data loaded yet',
 
   aria: {
     mapLevel: 'Map level',
+    electionType: 'Election type',
+    electionYear: 'Election year',
     resultType: 'Result type',
     round: 'Round',
   },

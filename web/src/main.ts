@@ -6,7 +6,7 @@ import { t } from './lib/i18n';
 import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
-import { renderLegend, renderLevelControl } from './map/controls';
+import { renderLegend, renderMapControl } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -87,7 +87,14 @@ async function main(): Promise<void> {
 
   const drawControls = () => {
     const state = getState();
-    renderLevelControl(byId('level-control'), state.level, levelCounts(viewDate(state)), (level) => setState({ level }));
+    renderMapControl(byId('map-control'), {
+      level: state.level,
+      counts: levelCounts(viewDate(state)),
+      elections: meta.elections,
+      current: currentElection(state),
+      onLevel: (level) => setState({ level }),
+      onElection: (election) => setState({ year: election.year, type: election.type }),
+    });
     const legend = byId('legend');
     legend.hidden = !electionFile;
     if (electionFile) renderLegend(legend, electionFile, levelOf, state.level);

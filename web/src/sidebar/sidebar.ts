@@ -1,7 +1,7 @@
 /**
  * The side panel, laid out like the Israel dashboard's detail panel:
  *   head (name, close) · kind + status · parents · districts · lineage notes
- *   election (heading + selector) · participation · results (L / E) · ballots · indicators
+ *   election (heading) · participation · results (L / E) · ballots · indicators
  */
 
 import { h } from '../components/dom';
@@ -13,23 +13,13 @@ import { renderIndicators } from './indicators';
 import { renderResults } from './results';
 import { renderBallots, renderTurnout } from './turnout';
 
+/** Which election the panel shows (it is chosen in the map control, top left). */
 function electionSection(ctx: SidebarContext): HTMLElement[] {
   const election = ctx.election;
   if (!election) return [h('h4', { class: 'd-h' }, t.electionLabel), h('p', { class: 'd-note' }, t.noElections)];
-  const select = h(
-    'select',
-    {
-      'aria-label': t.electionLabel,
-      onchange: (e: Event) => {
-        const election = ctx.meta.elections.find((x) => x.id === (e.target as HTMLSelectElement).value);
-        if (election) ctx.update({ year: election.year, type: election.type });
-      },
-    },
-    ...[...ctx.meta.elections].reverse().map((e) => h('option', { value: e.id, selected: e.id === election.id }, `${e.year} – ${e.type_name}`)),
-  );
   return [
     h('h4', { class: 'd-h' }, t.electionLabel),
-    h('div', { class: 'd-election' }, h('div', { class: 'd-election-title' }, t.electionHeading(election.year, election.type_name)), select),
+    h('div', { class: 'd-election' }, h('div', { class: 'd-election-title' }, t.electionHeading(election.year, election.type_name))),
   ];
 }
 

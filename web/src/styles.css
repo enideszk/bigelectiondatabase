@@ -148,6 +148,11 @@ input:focus-visible,
   color: var(--ink-2);
 }
 
+.seg button:disabled {
+  color: var(--ink-4);
+  cursor: default;
+}
+
 .seg button.on {
   background: #1e3550;
   color: #bcdcff;
@@ -198,13 +203,30 @@ input:focus-visible,
   box-shadow: var(--shadow);
 }
 
-.level-control {
+/* Map control (map/controls.ts): one table of three rows - map level, election type, year. The
+   widest row sets the width; the cells of the other rows stretch to fill it. */
+.map-control {
   top: 10px;
   left: 10px;
   max-width: calc(100% - 20px);
-  padding: 5px;
+  display: grid;
   overflow-x: auto;
   scrollbar-width: none;
+}
+
+.map-control .seg {
+  display: flex;
+  border: 0;
+  border-radius: 0;
+}
+
+.map-control .seg + .seg {
+  border-top: 1px solid var(--hair);
+}
+
+.map-control .seg button {
+  flex: 1 1 auto;
+  padding: 7px 12px;
 }
 
 .legend {
@@ -686,10 +708,6 @@ input:focus-visible,
   font-size: 14px;
   font-weight: 650;
   line-height: 1.3;
-}
-
-.d-election select {
-  width: 100%;
 }
 
 /* turnout: a thick ring, and beside it voted / did not vote, each with a tall color key */

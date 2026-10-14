@@ -9,6 +9,8 @@ export interface ToggleOption<T extends string | number> {
   title?: string;
   /** Small number after the label, e.g. how many units a map level has. */
   count?: number;
+  /** Shown but not selectable (e.g. an election type with no data loaded yet). */
+  disabled?: boolean;
 }
 
 export function toggle<T extends string | number>(
@@ -29,6 +31,7 @@ export function toggle<T extends string | number>(
           class: option.value === current ? 'on' : null,
           'aria-pressed': option.value === current ? 'true' : 'false',
           title: option.title,
+          disabled: option.disabled,
           onclick: () => onChange(option.value),
         },
         option.label,
