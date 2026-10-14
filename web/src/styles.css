@@ -182,9 +182,11 @@ input:focus-visible,
   background: var(--plane);
 }
 
+/* z-index 0 keeps Leaflet's panes (z-index 400+) in their own stacking context, below the overlays. */
 #map {
   position: absolute;
   inset: 0;
+  z-index: 0;
 }
 
 .map-overlay {
@@ -262,9 +264,39 @@ input:focus-visible,
   white-space: nowrap;
 }
 
-.maplibregl-ctrl-attrib,
-.maplibregl-ctrl-group {
-  background: var(--surface-2) !important;
+/* Leaflet's own stylesheet loads after this one: the #map prefix makes these overrides win. */
+#map.leaflet-container {
+  background: var(--plane);
+  font: inherit;
+}
+
+#map .leaflet-control-attribution {
+  background: rgba(18, 22, 29, 0.85);
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+#map .leaflet-control-attribution a {
+  color: var(--ink-2);
+}
+
+#map .leaflet-bar {
+  border: 1px solid var(--hair);
+  box-shadow: var(--shadow);
+}
+
+#map .leaflet-bar a {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border-bottom-color: var(--hair);
+}
+
+#map .leaflet-bar a:hover {
+  color: var(--ink);
+}
+
+#map .leaflet-bar a.leaflet-disabled {
+  color: var(--ink-4);
 }
 
 /* ---- side panel ---------------------------------------------------------------------- */

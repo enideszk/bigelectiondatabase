@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from .context import ExportContext, iso
 
 
-def build_meta(ctx: ExportContext) -> dict:
+def build_meta(ctx: ExportContext, geo: list[dict]) -> dict:
+    """`geo`: the boundary files written by geo.build_geo_files()."""
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -45,4 +46,5 @@ def build_meta(ctx: ExportContext) -> dict:
             for t in ctx.unit_types
             if t["is_clickable"]
         ],
+        "geo": sorted(geo, key=lambda g: g["file"]),
     }

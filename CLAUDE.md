@@ -8,9 +8,9 @@ Guide for working on this repository (for the owner and for AI-assisted sessions
 A static website showing every Hungarian election (1990–2026) and socio-demographic indicators
 per settlement / county / region / electoral district. Pipeline:
 
-    data/raw → etl loaders → PostgreSQL+PostGIS (Server-PC) → etl export + etl tiles → web/ (static)
+    data/raw → etl loaders → PostgreSQL+PostGIS (Server-PC) → etl export (JSON + GeoJSON) → web/ (static)
 
-Phase 1 (done): schema, ETL skeleton, exporter, tiles, website, all running on a FAKE fixture.
+Phase 1 (done): schema, ETL skeleton, exporter, website, all running on a FAKE fixture.
 Phase 2 (in progress): real data, one source at a time (docs/adding-a-source.md). The main
 database `hu_data` now holds real data only; the fixture lives on in the test database.
 
@@ -49,7 +49,7 @@ From the repo root (PowerShell):
 .\etl seed fixtures            # FAKE data; refuses if real sources are present
 .\etl load <name> [--step clean|load|all]
 .\etl check                    # data-quality checks, exit 1 on errors
-.\etl export | tiles | build   # build = export + tiles
+.\etl export | build          # build = export (JSON + GeoJSON into web/public/data)
 .\etl test [pytest args]       # Python tests against TEST_DATABASE_URL (wiped!)
 cd web; npm run dev | npm test | npm run build | npm run typecheck | npm run schema
 ```
@@ -67,14 +67,13 @@ Definition of done for any change: `.\etl test` and `npm test` pass, `npm run ty
 - **Vite watches by polling** (web/vite.config.ts). Native file watching over the share exhausts
   Server-PC's SMB resources: every other program's fsync then fails with "Insufficient system
   resources" (file saves break). Don't turn polling off when working via Z:.
-- **Never let Vite watch `public/data/` or `public/tiles/`** (`server.watch.ignored`). Polling the
-  thousands of generated files starved the dev server: 3–22 s per request instead of ~15 ms.
-  Vite only serves public files it knows from startup or the watcher, so `serveGenerated()` in
-  vite.config.ts serves these two folders from disk itself. After `.\etl build`, refresh the page.
+- **Never let Vite watch `public/data/`** (`server.watch.ignored`). Polling the thousands of
+  generated files starved the dev server: 3–22 s per request instead of ~15 ms. Vite only serves
+  public files it knows from startup or the watcher, so `serveGenerated()` in vite.config.ts serves
+  this folder from disk itself. After `.\etl export`, refresh the page.
 - **Small files on the share cost ~11 ms each** (create) and ~4 ms (delete) vs < 1 ms locally.
   The exporter therefore builds everything in memory and writes with 32 threads, overwriting in
-  place and deleting only stale files (export: 62 s -> 7 s). Tiles are cut with 8 parallel
-  database connections (28 s -> 8 s). Keep both when changing the exporter or the tiler.
+  place and deleting only stale files (export: 62 s -> 7 s). Keep this when changing the exporter.
 - In PowerShell, `npm run dev -- --port N` loses the flags; use `npx vite --port N` instead.
 - **Database**: PostgreSQL 18.6 + PostGIS 3.6.2 on Server-PC, Windows service `postgresql-x64-18`,
   data in `L:\PostgreSQL\18\data`, port 5432, reachable from 192.168.0.0/24 only. Databases
@@ -83,7 +82,7 @@ Definition of done for any change: `.\etl test` and `npm test` pass, `npm run ty
   Install details and re-install steps: docs/server-setup.md.
 - **Server-PC SSH**: `ssh -p 2222 oliver@192.168.0.253`; the login shell is Windows PowerShell 5.1,
   send scripts with `powershell -EncodedCommand`. psql there: `C:\Program Files\PostgreSQL\18\bin`.
-- No Docker anywhere (owner's decision). Tiles are cut by PostGIS (`ST_AsMVT`), not tippecanoe.
+- No Docker anywhere (owner's decision).
 
 ## Conventions
 
@@ -135,16 +134,18 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   behind them, `seg` toggles) follow the owner's Israel 2026 dashboard
   (`..\ilelection\dashboard\styles.css`, `il.css`, `renderDetail()` in `app.js`). Keep new UI
   consistent with it.
-- MapLibre GL 6 is ESM-only and needs `setWorkerUrl(... ?worker&url)` (done in `map/map.ts`).
 - State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=`.
-- Map tiles: one PMTiles file, one layer per level, every geometry *version* is a feature with
-  `vf`/`vt` (YYYYMMDD ints); the map filters by the selected election date.
-- **Map levels are switched by constant opacities, never by `visibility`** (`map/style.ts`,
-  `ElectionMap.setLevel`). MapLibre builds no render data for hidden layers, so toggling visibility
-  re-processes every tile and the map flashes; opacity changes re-process nothing (measured: 0 tile
-  reloads per switch). Keep fill/line opacities constant (a feature-state expression there is
-  data-driven and would re-process tiles too): hover is a separate layer. All levels are rendered,
-  so map event handlers must ignore every level but the shown one.
+- **The map is Leaflet 1.9 on canvas** (owner's choice, as in the Israel dashboard; MapLibre +
+  PMTiles was dropped in Phase 2). Boundaries: GeoJSON files `data/geo/{level}.json` and
+  `geo/smd-{set}.json` from `etl/src/etl/export/geo.py`; every geometry *version* is a feature with
+  `valid_from`/`valid_to`, and `meta.geo` says which period each file covers.
+- `ElectionMap` (`map/map.ts`) builds one Leaflet layer per level and set of geometry versions and
+  keeps it: a year switch only repaints colors (`setStyle`), a level switch adds the prebuilt layer
+  and removes the old one in the same canvas frame. Other levels are built while the browser is
+  idle. `setView(date, electionFilePromise)` changes nothing on screen until both the boundaries
+  and the colors are in, so the old view stays up instead of flashing. Hover and selection
+  outlines are separate polygons on their own panes/canvases (never restyle the fill for them).
+- Leaflet's CSS loads after ours: map overrides in `styles.css` are prefixed with `#map`.
 - **Selection swaps atomically** (`main.ts`): a newly selected unit replaces the old outline and
   sidebar only once its file has loaded; a loading bar appears after 150 ms; resting the pointer
   on a unit for 120 ms prefetches its file. Dev builds expose the map as `window.__electionMap`.

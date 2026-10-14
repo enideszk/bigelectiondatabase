@@ -4,12 +4,13 @@ Every Hungarian election from 1990 to 2026 plus socio-demographic indicators, on
 settlement, county, region or electoral district and the sidebar shows its results and indicators
 for the selected year.
 
-**Status: Phase 1.** Architecture, database schema and a working website, running on a small
-**FAKE** fixture dataset (`data/fixtures/`). No real data is loaded yet.
+**Status: Phase 2 (real data), in progress.** Loaded: settlements, districts, counties and regions
+(KSH, OpenStreetMap boundaries), electoral district maps, parliamentary elections 2014–2026 at
+polling-station level. Development and tests also use a small **FAKE** fixture (`data/fixtures/`).
 
 ```
-Sources (data/raw) ──► ETL loaders ──► PostgreSQL + PostGIS ──► etl export / etl tiles ──► static site (web/)
-                       (etl/)          (Server-PC)              JSON + PMTiles            (Vite, MapLibre)
+Sources (data/raw) ──► ETL loaders ──► PostgreSQL + PostGIS ──► etl export ──► static site (web/)
+                       (etl/)          (Server-PC)              JSON + GeoJSON   (Vite, Leaflet)
 ```
 
 The website is fully static: nothing in the browser talks to the database. The database is only
@@ -35,7 +36,7 @@ copy .env.example .env        # then put the hudata password into .env (twice)
 
 .\etl db up                   # create the schema (applies db/migrations/)
 .\etl seed fixtures           # load the FAKE fixture data
-.\etl build                   # write web/public/data/*.json and web/public/tiles/units.pmtiles
+.\etl build                   # write web/public/data/ (JSON results, GeoJSON boundaries)
 
 cd web
 npm install
@@ -58,9 +59,8 @@ Run from the repo root unless noted.
 | `.\etl seed fixtures` | (re)load the fake fixture |
 | `.\etl load <name>` | run a real-data loader (raw → interim → database), see [docs/adding-a-source.md](docs/adding-a-source.md) |
 | `.\etl check` | data-quality checks; run after every load |
-| `.\etl export` | database → `web/public/data/` (JSON) |
-| `.\etl tiles` | database → `web/public/tiles/units.pmtiles` |
-| `.\etl build` | export + tiles (then refresh the browser; the dev server does not watch generated data) |
+| `.\etl export` | database → `web/public/data/` (JSON results, GeoJSON boundaries); then refresh the browser |
+| `.\etl build` | same as export |
 | `.\etl test` | Python tests (uses the separate `hu_data_test` database, which it wipes) |
 | `npm run dev` (in `web/`) | website with live reload |
 | `npm test` (in `web/`) | website tests |
@@ -77,12 +77,12 @@ data/
   raw/                   untouched downloads (gitignored, never edited)
   interim/               cleaned files written by loaders (gitignored)
   fixtures/              small FAKE dataset + its generator (committed)
-  reference/             (later) small hand-curated real tables
+  reference/             small hand-curated real tables (regions, elections, parties, party aliases)
 db/
   bootstrap.sql          one-time database creation (superuser)
   migrations/            numbered SQL files: the schema
-etl/                     Python package: CLI, loaders, export, tiles, tests
-web/                     the website (Vite + TypeScript + MapLibre)
+etl/                     Python package: CLI, loaders, export, tests
+web/                     the website (Vite + TypeScript + Leaflet)
 docs/
   architecture.md        data model and design
   adding-a-source.md     step by step: adding a real data source

@@ -9,6 +9,7 @@ Output (default web/public/data/):
     units/index.json          every clickable unit, for search and breadcrumbs
     units/{unit_id}.json      everything about one unit
     elections/{id}.json       winning list per unit (map colors) and the list palette
+    geo/{level}.json          map boundaries (GeoJSON), see geo.py
 
 Writing thousands of small files is dominated by per-file latency when the repo is on a network
 share (~11 ms per file over SMB vs < 1 ms locally), so files are built in memory first and then
@@ -27,6 +28,7 @@ import psycopg
 
 from .context import ExportContext
 from .elections import build_election_file
+from .geo import build_geo_files
 from .meta import build_meta
 from .units import build_unit_file, build_unit_index
 
@@ -51,15 +53,25 @@ def export_all(conn: psycopg.Connection, out: Path) -> dict[str, int]:
         if not SAFE_ID.match(unit_id):
             raise ValueError(f"unit_id {unit_id!r} cannot be used as a file name")
 
+    geo_files, geo_manifest = build_geo_files(conn)
+    if not geo_files:
+        raise RuntimeError("unit_geometry is empty: the map would have no boundaries. Load geometries first.")
     files: dict[Path, str] = {
-        out / "meta.json": to_json(build_meta(ctx)),
+        out / "meta.json": to_json(build_meta(ctx, geo_manifest)),
         out / "units" / "index.json": to_json(build_unit_index(ctx)),
     }
     files.update({out / "units" / f"{u}.json": to_json(build_unit_file(ctx, u)) for u in ctx.clickable_unit_ids})
     files.update({out / "elections" / f"{e}.json": to_json(build_election_file(ctx, e)) for e in ctx.elections})
+    files.update({out / path: text for path, text in geo_files.items()})
 
-    for sub in ("units", "elections"):
+    subs = ("units", "elections", "geo")
+    for sub in subs:
         (out / sub).mkdir(parents=True, exist_ok=True)
-    stale = [p for sub in ("units", "elections") for p in (out / sub).glob("*.json") if p not in files]
+    stale = [p for sub in subs for p in (out / sub).glob("*.json") if p not in files]
     write_files(files, stale)
-    return {"units": len(ctx.clickable_unit_ids), "elections": len(ctx.elections), "stale_removed": len(stale)}
+    return {
+        "units": len(ctx.clickable_unit_ids),
+        "elections": len(ctx.elections),
+        "geo": len(geo_files),
+        "stale_removed": len(stale),
+    }

@@ -18,6 +18,18 @@
         "bp_district"
       ]
     },
+    "MapLevel": {
+      "type": "string",
+      "enum": [
+        "settlement",
+        "jaras",
+        "county",
+        "nuts2",
+        "nuts1",
+        "smd"
+      ],
+      "description": "The map's levels; 'settlement' shows settlements and Budapest districts."
+    },
     "ElectionType": {
       "type": "string",
       "enum": [
@@ -85,6 +97,13 @@
           "items": {
             "$ref": "#/definitions/UnitTypeMeta"
           }
+        },
+        "geo": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GeoFileMeta"
+          },
+          "description": "The map's boundary files; per level, load the ones whose period contains the date shown."
         }
       },
       "required": [
@@ -94,7 +113,8 @@
         "attribution",
         "elections",
         "indicators",
-        "unit_types"
+        "unit_types",
+        "geo"
       ],
       "additionalProperties": false
     },
@@ -225,6 +245,46 @@
         "type",
         "name",
         "name_hu"
+      ],
+      "additionalProperties": false
+    },
+    "GeoFileMeta": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "#/definitions/MapLevel"
+        },
+        "file": {
+          "type": "string",
+          "description": "Path below data/, e.g. \"geo/settlement.json\" or \"geo/smd-2024.json\"."
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Period the file's features cover (null = open-ended)."
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "level",
+        "file",
+        "valid_from",
+        "valid_to"
       ],
       "additionalProperties": false
     },
@@ -824,6 +884,147 @@
         "parties"
       ],
       "additionalProperties": false
+    },
+    "GeoFile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "FeatureCollection"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GeoFeature"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "features"
+      ],
+      "additionalProperties": false,
+      "description": "Every geometry version of one map level's units; show those valid on the date shown."
+    },
+    "GeoFeature": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Feature"
+        },
+        "properties": {
+          "$ref": "#/definitions/GeoProperties"
+        },
+        "geometry": {
+          "$ref": "#/definitions/GeoGeometry"
+        }
+      },
+      "required": [
+        "type",
+        "properties",
+        "geometry"
+      ],
+      "additionalProperties": false
+    },
+    "GeoProperties": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unit id."
+        },
+        "name": {
+          "type": "string"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "valid_from",
+        "valid_to"
+      ],
+      "additionalProperties": false
+    },
+    "GeoGeometry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "Polygon"
+            },
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "MultiPolygon"
+            },
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Longitude/latitude rings."
     }
   }
 }

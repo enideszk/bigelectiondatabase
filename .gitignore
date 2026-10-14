@@ -9,7 +9,6 @@ data/interim/*
 
 # Generated website data
 web/public/data/
-web/public/tiles/
 web/dist/
 
 # Python

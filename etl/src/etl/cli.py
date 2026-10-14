@@ -134,37 +134,27 @@ def list_loaders() -> None:
         typer.echo("No loaders registered yet. See docs/adding-a-source.md.")
 
 
-# --- etl export / tiles / build / check --------------------------------------------------------
+# --- etl export / build / check ----------------------------------------------------------------
 
 
 @app.command("export")
 def export(out: Path = typer.Option(config.EXPORT_DIR, help="Output folder.")) -> None:
-    """Write the website's static JSON files (refreshes aggregates first)."""
+    """Write the website's static JSON and GeoJSON files (refreshes aggregates first)."""
     from .export import export_all
 
     with db.connect() as conn:
         db.refresh_aggregates(conn)
         stats = export_all(conn, out)
-    typer.echo(f"Exported {stats['units']} unit files and {stats['elections']} election files to {_show(out)}")
-
-
-@app.command("tiles")
-def tiles(
-    out: Path = typer.Option(config.TILES_PATH, help="Output .pmtiles file."),
-    max_zoom: int = typer.Option(10, help="Highest zoom level to cut (the map overzooms beyond it)."),
-) -> None:
-    """Cut vector tiles from unit_geometry with PostGIS and pack them into a PMTiles file."""
-    from .tiles import build_pmtiles
-
-    stats = build_pmtiles(config.database_url(), out, max_zoom=max_zoom)
-    typer.echo(f"Wrote {stats['tiles']} tiles ({stats['bytes'] / 1024:.0f} KiB) to {_show(out)}")
+    typer.echo(
+        f"Exported {stats['units']} unit files, {stats['elections']} election files"
+        f" and {stats['geo']} boundary files to {_show(out)}"
+    )
 
 
 @app.command("build")
-def build(max_zoom: int = typer.Option(10, help="Highest tile zoom level.")) -> None:
-    """export + tiles in one go."""
+def build() -> None:
+    """Everything the website needs (currently the same as export)."""
     export(config.EXPORT_DIR)
-    tiles(config.TILES_PATH, max_zoom)
 
 
 @app.command("test", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

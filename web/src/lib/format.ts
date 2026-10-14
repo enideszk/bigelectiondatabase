@@ -43,11 +43,6 @@ export function formatDate(iso: IsoDate): string {
   return dateFormat.format(new Date(Date.UTC(y, m - 1, d)));
 }
 
-/** "2018-04-08" -> 20180408, the integer form used by the tiles' vf/vt properties. */
-export function dateToInt(iso: IsoDate): number {
-  return Number(iso.replaceAll('-', ''));
-}
-
 /** Lowercase without accents, for search: "Őrfalu" -> "orfalu". */
 export function normalizeForSearch(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();

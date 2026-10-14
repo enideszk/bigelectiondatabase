@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateToInt, formatDate, formatInt, formatShare, formatValue, normalizeForSearch } from '../src/lib/format';
+import { formatDate, formatInt, formatShare, formatValue, normalizeForSearch } from '../src/lib/format';
 
 describe('US number and date formatting', () => {
   it('formats integers with comma thousands separators', () => {
@@ -22,10 +22,6 @@ describe('US number and date formatting', () => {
   it('formats calendar dates without time-zone shifts', () => {
     expect(formatDate('2018-04-08')).toBe('April 8, 2018');
     expect(formatDate('2010-01-01')).toBe('January 1, 2010');
-  });
-
-  it('converts dates to the integers used in tile filters', () => {
-    expect(dateToInt('2018-04-08')).toBe(20180408);
   });
 
   it('normalizes Hungarian names for search', () => {

@@ -4,10 +4,10 @@
  * Selecting another unit adds a browser history entry; other changes replace the current one.
  */
 
-import type { ElectionMeta, ElectionType, IsoDate, Meta } from './lib/types';
+import type { ElectionMeta, ElectionType, IsoDate, MapLevel, Meta } from './lib/types';
 
 export type View = 'L' | 'E';
-export type Level = 'settlement' | 'jaras' | 'county' | 'nuts2' | 'nuts1' | 'smd';
+export type Level = MapLevel;
 export const LEVELS: Level[] = ['settlement', 'jaras', 'county', 'nuts2', 'nuts1', 'smd'];
 
 export interface AppState {

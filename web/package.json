@@ -11,15 +11,15 @@
     "schema": "node scripts/generate-schema.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
-    "maplibre-gl": "^6.13.0",
-    "pmtiles": "^4.5.0"
-  },
   "devDependencies": {
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.20.5",
     "ts-json-schema-generator": "^2.9.0",
     "typescript": "~5.9.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
   }
 }

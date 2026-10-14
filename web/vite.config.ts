@@ -3,14 +3,13 @@ import path from 'node:path';
 import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
-const GENERATED = ['data', 'tiles'];
-const CONTENT_TYPES: Record<string, string> = { '.json': 'application/json', '.pmtiles': 'application/octet-stream' };
+/** Folder under public/ that `etl export` writes (thousands of JSON files). */
+const GENERATED = 'data';
 
 /**
- * Serve the generated folders (public/data, public/tiles) straight from disk in the dev server.
- * Vite serves public files from a list taken at startup and kept current by the file watcher, but
- * the watcher ignores these folders (see below), so files added by `etl build` would otherwise get
- * the index.html fallback until a restart. Supports Range requests (PMTiles reads byte ranges).
+ * Serve public/data straight from disk in the dev server. Vite serves public files from a list
+ * taken at startup and kept current by the file watcher, but the watcher ignores this folder (see
+ * below), so files added by `etl export` would otherwise get the index.html fallback until a restart.
  */
 function serveGenerated(): Plugin {
   return {
@@ -19,43 +18,25 @@ function serveGenerated(): Plugin {
       const publicDir = path.resolve(server.config.publicDir);
       server.middlewares.use((req, res, next) => {
         const url = decodeURIComponent((req.url ?? '').split('?')[0]);
-        if (!GENERATED.some((folder) => url.startsWith(`/${folder}/`))) return next();
+        if (!url.startsWith(`/${GENERATED}/`)) return next();
         const file = path.join(publicDir, url);
         if (!file.startsWith(publicDir + path.sep)) return next();
-        let size: number;
-        let modified: Date;
+        let stat;
         try {
-          const stat = statSync(file);
-          if (!stat.isFile()) return next();
-          size = stat.size;
-          modified = stat.mtime;
+          stat = statSync(file);
         } catch {
           return next();
         }
-        res.setHeader('Content-Type', CONTENT_TYPES[path.extname(file)] ?? 'application/octet-stream');
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Last-Modified', modified.toUTCString());
-        const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
-        if (range && (range[1] || range[2])) {
-          const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
-          const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
-          if (start > end || start >= size) {
-            res.statusCode = 416;
-            res.setHeader('Content-Range', `bytes */${size}`);
-            return res.end();
-          }
-          res.statusCode = 206;
-          res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
-          res.setHeader('Content-Length', end - start + 1);
-          return createReadStream(file, { start, end }).pipe(res);
-        }
+        if (!stat.isFile()) return next();
         const since = Date.parse(req.headers['if-modified-since'] ?? '');
-        if (since && Math.floor(modified.getTime() / 1000) <= Math.floor(since / 1000)) {
+        if (since && Math.floor(stat.mtimeMs / 1000) <= Math.floor(since / 1000)) {
           res.statusCode = 304;
           return res.end();
         }
-        res.setHeader('Content-Length', size);
+        res.setHeader('Content-Type', file.endsWith('.json') ? 'application/json' : 'application/octet-stream');
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Last-Modified', stat.mtime.toUTCString());
         createReadStream(file).pipe(res);
       });
     },
@@ -69,10 +50,10 @@ export default defineConfig(({ mode }) => {
   // to use native watching when the repo is on a local disk.
   const env = loadEnv(mode, '..', 'VITE_');
   const polling = (process.env.VITE_USE_POLLING ?? env.VITE_USE_POLLING ?? '1') !== '0';
-  // Never watch the generated data (thousands of files written by `etl build`): polling them over
+  // Never watch the generated data (thousands of files written by `etl export`): polling them over
   // the share starves the dev server (seconds per request). serveGenerated() serves them instead;
-  // after `etl build`, refresh the page.
-  const ignored = GENERATED.map((folder) => `**/public/${folder}/**`);
+  // after `etl export`, refresh the page.
+  const ignored = [`**/public/${GENERATED}/**`];
   return {
     // Relative asset paths: the built site works from any folder or sub-path.
     base: './',

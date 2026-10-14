@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     }, PREFETCH_DELAY_MS);
   };
 
-  const map = new ElectionMap(byId('map'), byId('map-tooltip'), { onSelect: select, onHover: prefetch }, meta.attribution);
+  const map = new ElectionMap(byId('map'), byId('map-tooltip'), { onSelect: select, onHover: prefetch }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
   const showSelection = (unitId: string | null) => {
     const entry = unitId ? units.get(unitId) : undefined;
     const layer = entry ? levelOfType(entry.type) : null;
-    void map.select(entry && layer ? { sourceLayer: layer, id: entry.id } : null);
+    void map.select(entry && layer ? { level: layer, id: entry.id } : null);
     shownUnit = unitId;
   };
 
@@ -94,18 +94,18 @@ async function main(): Promise<void> {
     const election = currentElection(state);
     const electionChanged = !previous || currentElection(previous)?.id !== election?.id;
 
-    if (electionChanged && election) {
-      loadElection(election.id)
-        .then((file) => {
-          if (currentElection()?.id !== election.id) return; // the user moved on meanwhile
-          electionFile = file;
-          void map.setView(election.date, election.district_set, file);
+    if (electionChanged) {
+      // Without an election (none loaded yet): today's boundaries, no colors.
+      const file = election ? loadElection(election.id) : Promise.resolve(null);
+      // The map keeps the previous view until both the boundaries and this file are in.
+      void map.setView(viewDate(state), file);
+      file
+        .then((loaded) => {
+          if (currentElection()?.id !== election?.id) return; // the user moved on meanwhile
+          electionFile = loaded;
           drawControls();
         })
         .catch((error) => console.error(error));
-    } else if (electionChanged) {
-      electionFile = null; // no election loaded yet: today's boundaries, no colors
-      void map.setView(viewDate(state), null, null);
     }
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
     if (electionChanged || previous?.level !== state.level) drawControls();

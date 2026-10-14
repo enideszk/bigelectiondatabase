@@ -10,6 +10,7 @@ import pytest
 
 from etl import config, db
 from etl.export import export_all
+from etl.export.geo import LEVELS
 
 
 def _validator(type_name: str) -> jsonschema.Draft7Validator:
@@ -48,7 +49,30 @@ def test_every_file_matches_the_typescript_types(exported):
     for path in (exported / "elections").glob("*.json"):
         assert _errors(election_validator, _load(path)) == [], path.name
         checked += 1
+    geo_validator = _validator("GeoFile")
+    for path in (exported / "geo").glob("*.json"):
+        assert _errors(geo_validator, _load(path)) == [], path.name
+        checked += 1
     assert checked > 20
+
+
+def test_boundary_files_cover_every_level_on_every_election_day(exported):
+    """Per map level and election day: one geometry for each unit that existed then, nothing else."""
+    meta = _load(exported / "meta.json")
+    units = _load(exported / "units" / "index.json")["units"]
+
+    def valid_on(item, day):
+        return (item["valid_from"] is None or item["valid_from"] <= day) and (item["valid_to"] is None or day < item["valid_to"])
+
+    for election in meta["elections"]:
+        day = election["date"]
+        for level, types in LEVELS.items():
+            files = [g for g in meta["geo"] if g["level"] == level and valid_on(g, day)]
+            features = [f for g in files for f in _load(exported / g["file"])["features"] if valid_on(f["properties"], day)]
+            ids = [f["properties"]["id"] for f in features]
+            assert len(ids) == len(set(ids)), f"{level}: a unit has two geometries on {day}"
+            existing = {u["id"] for u in units if u["type"] in types and valid_on(u, day)}
+            assert set(ids) == existing, f"{level} boundaries on {day}"
 
 
 def test_meta_flags_fixture_and_lists_elections_oldest_first(exported):

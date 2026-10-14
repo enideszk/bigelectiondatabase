@@ -12,6 +12,8 @@
 export type IsoDate = string;
 
 export type UnitType = 'country' | 'nuts1' | 'nuts2' | 'county' | 'smd' | 'jaras' | 'settlement' | 'bp_district';
+/** The map's levels; 'settlement' shows settlements and Budapest districts. */
+export type MapLevel = 'settlement' | 'jaras' | 'county' | 'nuts2' | 'nuts1' | 'smd';
 export type ElectionType = 'parliament' | 'ep' | 'local' | 'referendum';
 /** 'list' = party-list ballot, 'candidate' = single-member ballot. */
 export type Ballot = 'list' | 'candidate';
@@ -31,6 +33,17 @@ export interface Meta {
   elections: ElectionMeta[];
   indicators: IndicatorMeta[];
   unit_types: UnitTypeMeta[];
+  /** The map's boundary files; per level, load the ones whose period contains the date shown. */
+  geo: GeoFileMeta[];
+}
+
+export interface GeoFileMeta {
+  level: MapLevel;
+  /** Path below data/, e.g. "geo/settlement.json" or "geo/smd-2024.json". */
+  file: string;
+  /** Period the file's features cover (null = open-ended). */
+  valid_from: IsoDate | null;
+  valid_to: IsoDate | null;
 }
 
 export interface ElectionMeta {
@@ -218,3 +231,30 @@ export interface ElectionList {
   color: string;
   parties: string[];
 }
+
+// ---- data/geo/{level}.json, data/geo/smd-{set}.json (GeoJSON) ------------------------------
+
+/** Every geometry version of one map level's units; show those valid on the date shown. */
+export interface GeoFile {
+  type: 'FeatureCollection';
+  features: GeoFeature[];
+}
+
+export interface GeoFeature {
+  type: 'Feature';
+  properties: GeoProperties;
+  geometry: GeoGeometry;
+}
+
+export interface GeoProperties {
+  /** Unit id. */
+  id: string;
+  name: string;
+  valid_from: IsoDate | null;
+  valid_to: IsoDate | null;
+}
+
+/** Longitude/latitude rings. */
+export type GeoGeometry =
+  | { type: 'Polygon'; coordinates: number[][][] }
+  | { type: 'MultiPolygon'; coordinates: number[][][][] };

@@ -1,6 +1,6 @@
 /** Loading the static JSON files written by `etl export`. Every file is fetched at most once. */
 
-import type { ElectionFile, Meta, UnitFile, UnitIndex } from './types';
+import type { ElectionFile, GeoFile, Meta, UnitFile, UnitIndex } from './types';
 
 const BASE = import.meta.env.BASE_URL;
 const cache = new Map<string, Promise<unknown>>();
@@ -23,8 +23,5 @@ export const loadUnitIndex = () => getJson<UnitIndex>('data/units/index.json');
 export const loadUnit = (unitId: string) => getJson<UnitFile>(`data/units/${encodeURIComponent(unitId)}.json`);
 export const loadElection = (electionId: string) =>
   getJson<ElectionFile>(`data/elections/${encodeURIComponent(electionId)}.json`);
-
-/** Absolute URL of the PMTiles file (the pmtiles protocol needs one). */
-export function tilesUrl(): string {
-  return new URL(`${BASE}tiles/units.pmtiles`, document.baseURI).href;
-}
+/** A boundary file listed in meta.geo (path below data/). */
+export const loadGeo = (file: string) => getJson<GeoFile>(`data/${file}`);

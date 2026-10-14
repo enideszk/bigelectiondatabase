@@ -12,11 +12,11 @@ data/interim/<source>/      tidy CSVs whose columns match database tables
 PostgreSQL 18 + PostGIS     on Server-PC; schema = db/migrations/*.sql
       │  mv_* views         aggregate any reporting level up to every clickable unit
       │
-      ├── etl export ──►    web/public/data/*.json      (shapes = web/src/lib/types.ts)
-      └── etl tiles  ──►    web/public/tiles/units.pmtiles  (PostGIS ST_AsMVT, packed with pmtiles)
+      └── etl export ──►    web/public/data/*.json      (shapes = web/src/lib/types.ts)
+                            web/public/data/geo/*.json  (GeoJSON boundaries per map level)
                               │
                               ▼
-                     web/ (Vite + TypeScript + MapLibre GL 6) → static files, host anywhere
+                     web/ (Vite + TypeScript + Leaflet 1.9) → static files, host anywhere
 ```
 
 The browser never talks to the database. Every change to the data is published by re-running
@@ -120,17 +120,18 @@ tests validate every file against the generated `types.schema.json`).
 
 | File | Content |
 |---|---|
-| `data/meta.json` | elections (with rounds and district set), indicators, unit type names, `is_fixture` |
+| `data/meta.json` | elections (with rounds and district set), indicators, unit type names, boundary files, `is_fixture` |
 | `data/units/index.json` | every clickable unit: id, type, name, current ancestors (search, breadcrumbs) |
 | `data/units/{unit_id}.json` | one unit: parents with validity, former names, lineage, and per election: districts, turnout, list results, races per district and round (or districts won per party above county level), indicators |
 | `data/elections/{election_id}.json` | lists with colors and the winning list per unit (map colors) |
-| `tiles/units.pmtiles` | one vector layer per map level; every geometry version is a feature with `vf`/`vt` dates |
+| `data/geo/{level}.json`, `data/geo/smd-{set}.json` | GeoJSON boundaries per map level (electoral districts per district set); every geometry version is a feature with `valid_from`/`valid_to`; `meta.json` lists the files with the period each covers |
 
 ## Website
 
 - `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=`).
-- `src/map/`: MapLibre map, PMTiles protocol, one fill/line/outline layer per level, filtered to
-  the geometry versions valid on the selected election date; hover/selection via feature-state.
+- `src/map/`: Leaflet map drawn on canvas (the owner's other dashboards use the same setup). Per
+  level, the units valid on the election date become one layer, built once and reused; panes for
+  fills, county lines, hover and selection outlines.
 - `src/sidebar/`: the side panel (header, participation, results with L/E toggle, ballots,
   indicators). Its look follows the Israel 2026 dashboard (`ilelection/dashboard`): dark theme,
   the same color tokens, rows with party-colored bars behind them.
@@ -142,11 +143,11 @@ tests validate every file against the generated `types.schema.json`).
 | Decision | Why |
 |---|---|
 | No Docker; PostgreSQL as a Windows service on Server-PC | owner's choice; the site will be served from Server-PC anyway |
-| Tiles cut by PostGIS (`ST_AsMVT`) and packed with the `pmtiles` Python package | tippecanoe has no Windows build; this needs no external program |
+| Leaflet + GeoJSON instead of MapLibre + vector tiles (switched in Phase 2) | the owner's other election maps use Leaflet and felt faster; the whole country is ~3,200 polygons (2.2 MB of GeoJSON per level at most), small enough to load whole. Electoral districts are simplified with `ST_CoverageSimplify` (shared borders stay shared) |
 | Polling stations are units | every result table references `unit_id` whatever the reporting level |
 | Deferred foreign keys | delete-and-reload of a source cascades through several tables; immediate checks fired before the cascades finished |
 | Extensions in their own schema | `etl db reset` can drop `public` without touching PostGIS |
 | JSON Schema generated from `types.ts` | one source of truth for the file shapes, checked from both Python and TypeScript |
 | `etl.cmd` wrapper, venv in `%LOCALAPPDATA%` | the repo is on a network share; see CLAUDE.md |
-| Parallel file writes in the exporter, parallel tile queries | per-file latency on the share (~11 ms) and one-query-per-tile over the LAN dominated build time; parallelism cut `etl build` from ~90 s to ~15 s |
-| Dev server ignores `public/data/` and `public/tiles/` | polling thousands of generated files starved it (seconds per request) |
+| Parallel file writes in the exporter | per-file latency on the share (~11 ms) dominated export time; parallel writes cut it from 62 s to 7 s |
+| Dev server ignores `public/data/` and serves it from disk itself | polling thousands of generated files starved it (seconds per request); Vite would not serve files added after startup to an unwatched folder |

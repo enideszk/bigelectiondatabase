@@ -15,7 +15,6 @@ MIGRATIONS_DIR = REPO_ROOT / "db" / "migrations"
 FIXTURES_DIR = REPO_ROOT / "data" / "fixtures"
 WEB_PUBLIC_DIR = REPO_ROOT / "web" / "public"
 EXPORT_DIR = WEB_PUBLIC_DIR / "data"
-TILES_PATH = WEB_PUBLIC_DIR / "tiles" / "units.pmtiles"
 TYPES_SCHEMA_PATH = REPO_ROOT / "web" / "src" / "lib" / "types.schema.json"
 
 
