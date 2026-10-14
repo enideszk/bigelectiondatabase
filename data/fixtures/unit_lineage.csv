@@ -1,0 +1,2 @@
+from_unit_id,to_unit_id,change_date,change_type,weight,notes
+settlement-99005,settlement-99004,2014-10-12,merge,,FAKE: Kiskamu merged into Nagykamu

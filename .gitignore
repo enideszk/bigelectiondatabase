@@ -1,0 +1,30 @@
+# Local settings (passwords)
+.env
+
+# Data: raw downloads and intermediate files are never committed
+data/raw/*
+data/interim/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+
+# Generated website data
+web/public/data/
+web/public/tiles/
+web/dist/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+.DS_Store

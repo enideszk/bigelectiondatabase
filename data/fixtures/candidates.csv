@@ -1,0 +1,23 @@
+candidate_id,election_id,race_type,district_unit_id,name,ballot_position
+1,parliament-2010,smd,smd-1990-91-01,Teszt Elek,1
+2,parliament-2010,smd,smd-1990-91-01,Minta Márta,2
+3,parliament-2010,smd,smd-1990-91-01,Próba Pál,3
+4,parliament-2010,smd,smd-1990-91-01,Kamu Kata,4
+5,parliament-2010,smd,smd-1990-91-02,Ál Ödön,1
+6,parliament-2010,smd,smd-1990-91-02,Hamis Hanna,2
+7,parliament-2010,smd,smd-1990-91-02,Vak Vilmos,3
+8,parliament-2010,smd,smd-1990-91-02,Példa Péter,4
+9,parliament-2010,smd,smd-1990-92-01,Fiktív Ferenc,1
+10,parliament-2010,smd,smd-1990-92-01,Kitalált Kornélia,2
+11,parliament-2010,smd,smd-1990-92-01,Mű Miklós,3
+12,parliament-2010,smd,smd-1990-92-01,Lila Lili,4
+13,parliament-2018,smd,smd-2011-91-01,Teszt Elek,1
+14,parliament-2018,smd,smd-2011-91-01,Összefogó Olga,2
+15,parliament-2018,smd,smd-2011-91-01,Zöldi Zoltán,3
+16,parliament-2018,smd,smd-2011-91-02,Ál Ödön,1
+17,parliament-2018,smd,smd-2011-91-02,Hamis Hanna,2
+18,parliament-2018,smd,smd-2011-91-02,Kamu Kata,3
+19,parliament-2018,smd,smd-2011-91-02,Független Fanni,4
+20,parliament-2018,smd,smd-2011-92-01,Fiktív Ferenc,1
+21,parliament-2018,smd,smd-2011-92-01,Kitalált Kornélia,2
+22,parliament-2018,smd,smd-2011-92-01,Zöld Zita,3

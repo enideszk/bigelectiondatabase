@@ -1,0 +1,32 @@
+unit_id,unit_type,code,name,name_en,valid_from,valid_to
+country-XX,country,XX,Kamuország,Fakeland,,
+nuts1-XX1,nuts1,XX1,Nyugat-Kamuország,West Fakeland,,
+nuts1-XX2,nuts1,XX2,Kelet-Kamuország,East Fakeland,,
+nuts2-XX11,nuts2,XX11,Közép-Nyugat-Kamuország,Central West Fakeland,,
+nuts2-XX21,nuts2,XX21,Közép-Kelet-Kamuország,Central East Fakeland,,
+county-91,county,91,Alfa,,,
+county-92,county,92,Béta,,,
+jaras-911,jaras,911,Próbavárosi járás,,2013-01-01,
+jaras-912,jaras,912,Kamuházi járás,,2013-01-01,
+jaras-921,jaras,921,Teszteleki járás,,2013-01-01,
+jaras-922,jaras,922,Üresdi járás,,2013-01-01,
+settlement-99001,settlement,99001,Próbaváros,,,
+settlement-99002,settlement,99002,Mintafalva,,,
+settlement-99003,settlement,99003,Kamuháza,,,
+settlement-99004,settlement,99004,Nagykamu,,,
+settlement-99005,settlement,99005,Kiskamu,,,2014-10-12
+settlement-99006,settlement,99006,Tesztelek,,,
+settlement-99007,settlement,99007,Álomfalva,,,
+settlement-99008,settlement,99008,Üresd,,,
+settlement-99009,settlement,99009,Őrfalu,,,
+special-mail,special,mail,Levélszavazatok,Mail votes,,
+smd-1990-91-01,smd,1990-91-01,Alfa 01,,,2011-12-23
+smd-1990-91-02,smd,1990-91-02,Alfa 02,,,2011-12-23
+smd-1990-92-01,smd,1990-92-01,Béta 01,,,2011-12-23
+smd-2011-91-01,smd,2011-91-01,Alfa 01,,2011-12-23,
+smd-2011-91-02,smd,2011-91-02,Alfa 02,,2011-12-23,
+smd-2011-92-01,smd,2011-92-01,Béta 01,,2011-12-23,
+polling_station-parliament-2018-99001-001,polling_station,parliament-2018-99001-001,Próbaváros 001. szavazókör,,2018-04-08,2018-04-09
+polling_station-parliament-2018-99001-002,polling_station,parliament-2018-99001-002,Próbaváros 002. szavazókör,,2018-04-08,2018-04-09
+polling_station-parliament-2018-99001-003,polling_station,parliament-2018-99001-003,Próbaváros 003. szavazókör,,2018-04-08,2018-04-09
+polling_station-parliament-2018-99001-004,polling_station,parliament-2018-99001-004,Próbaváros 004. szavazókör,,2018-04-08,2018-04-09

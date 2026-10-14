@@ -1,0 +1,9 @@
+list_id,election_id,name,short_name,list_kind,scope_unit_id,color,ballot_position
+1,parliament-2010,Narancs–Fehér,NP–FNP,party,,,1
+2,parliament-2010,Piros Párt,PP,party,,,2
+3,parliament-2010,Kék Párt,KP,party,,,3
+4,parliament-2010,Zöld Mozgalom,ZM,party,,,4
+5,parliament-2010,Lila Liga,LL,party,,,5
+6,parliament-2018,Narancs–Fehér,NP–FNP,party,,,1
+7,parliament-2018,Piros–Kék Összefogás,PP–KP,party,,#b03a6e,2
+8,parliament-2018,Zöld Szövetség,ZSZ,party,,,3

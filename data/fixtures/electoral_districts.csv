@@ -1,0 +1,7 @@
+unit_id,district_set_id,county_unit_id,number,seat_unit_id
+smd-1990-91-01,1990,county-91,1,settlement-99003
+smd-1990-91-02,1990,county-91,2,settlement-99001
+smd-1990-92-01,1990,county-92,1,settlement-99006
+smd-2011-91-01,2011,county-91,1,settlement-99003
+smd-2011-91-02,2011,county-91,2,settlement-99001
+smd-2011-92-01,2011,county-92,1,settlement-99006

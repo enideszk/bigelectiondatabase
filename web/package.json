@@ -1,0 +1,25 @@
+{
+  "name": "hu-data-platform-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "schema": "node scripts/generate-schema.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "maplibre-gl": "^6.13.0",
+    "pmtiles": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "ts-json-schema-generator": "^2.9.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

@@ -1,0 +1,4 @@
+indicator_id,name_en,name_hu,unit_of_measure,decimals,description
+avg_wage,Average gross monthly wage,Átlagos bruttó havi kereset,HUF,0,FAKE. Average gross monthly earnings of employees.
+unemployment_rate,Unemployment rate,Munkanélküliségi ráta,%,1,FAKE. Unemployed as a share of the labor force.
+employed,Employed persons,Foglalkoztatottak száma,persons,0,FAKE. Number of employed residents.

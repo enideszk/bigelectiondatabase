@@ -1,0 +1,821 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "IsoDate": {
+      "type": "string",
+      "description": "Calendar date, \"YYYY-MM-DD\"."
+    },
+    "UnitType": {
+      "type": "string",
+      "enum": [
+        "country",
+        "nuts1",
+        "nuts2",
+        "county",
+        "smd",
+        "jaras",
+        "settlement",
+        "bp_district"
+      ]
+    },
+    "ElectionType": {
+      "type": "string",
+      "enum": [
+        "parliament",
+        "ep",
+        "local",
+        "referendum"
+      ]
+    },
+    "Ballot": {
+      "type": "string",
+      "enum": [
+        "list",
+        "candidate"
+      ],
+      "description": "'list' = party-list ballot, 'candidate' = single-member ballot."
+    },
+    "LineageType": {
+      "type": "string",
+      "enum": [
+        "merge",
+        "split",
+        "rename",
+        "recode",
+        "transfer"
+      ]
+    },
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "generated_at": {
+          "type": "string",
+          "description": "When `etl export` ran (ISO 8601 timestamp)."
+        },
+        "is_fixture": {
+          "type": "boolean",
+          "description": "True when the database holds the FAKE development fixture; the site then shows a banner."
+        },
+        "elections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ElectionMeta"
+          },
+          "description": "Oldest first."
+        },
+        "indicators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IndicatorMeta"
+          }
+        },
+        "unit_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UnitTypeMeta"
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "generated_at",
+        "is_fixture",
+        "elections",
+        "indicators",
+        "unit_types"
+      ],
+      "additionalProperties": false
+    },
+    "ElectionMeta": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/ElectionType"
+        },
+        "type_name": {
+          "type": "string",
+          "description": "English name of the election type, e.g. \"Parliamentary election\"."
+        },
+        "year": {
+          "type": "number"
+        },
+        "date": {
+          "$ref": "#/definitions/IsoDate",
+          "description": "Date of round 1."
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_hu": {
+          "type": "string"
+        },
+        "rounds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RoundMeta"
+          }
+        },
+        "district_set": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Electoral district set used (parliamentary elections), e.g. \"2011\"."
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "type_name",
+        "year",
+        "date",
+        "name",
+        "name_hu",
+        "rounds",
+        "district_set"
+      ],
+      "additionalProperties": false
+    },
+    "RoundMeta": {
+      "type": "object",
+      "properties": {
+        "round": {
+          "type": "number"
+        },
+        "date": {
+          "$ref": "#/definitions/IsoDate"
+        }
+      },
+      "required": [
+        "round",
+        "date"
+      ],
+      "additionalProperties": false
+    },
+    "IndicatorMeta": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_hu": {
+          "type": "string"
+        },
+        "unit_of_measure": {
+          "type": "string",
+          "description": "Shown after the value: \"%\", \"HUF\", \"persons\"."
+        },
+        "decimals": {
+          "type": "number"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "description": "Name of the source the indicator definition was loaded from."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "name_hu",
+        "unit_of_measure",
+        "decimals",
+        "description",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "UnitTypeMeta": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/UnitType"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_hu": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "name_hu"
+      ],
+      "additionalProperties": false
+    },
+    "UnitIndex": {
+      "type": "object",
+      "properties": {
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UnitIndexEntry"
+          }
+        }
+      },
+      "required": [
+        "units"
+      ],
+      "additionalProperties": false
+    },
+    "UnitIndexEntry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/UnitType"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_en": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ancestor ids, top (country) first, valid on the unit's last day (today if it still exists)."
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name",
+        "name_en",
+        "parents",
+        "valid_from",
+        "valid_to"
+      ],
+      "additionalProperties": false
+    },
+    "UnitFile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/UnitType"
+        },
+        "code": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_en": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "former_names": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FormerName"
+          }
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParentLink"
+          },
+          "description": "Every ancestor link with its validity; pick the ones valid on the selected election's date."
+        },
+        "lineage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LineageEvent"
+          }
+        },
+        "elections": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UnitElection"
+          },
+          "description": "Keyed by election id; only elections with results for this unit."
+        },
+        "indicators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IndicatorValue"
+          },
+          "description": "Sorted by indicator, then year."
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "code",
+        "name",
+        "name_en",
+        "valid_from",
+        "valid_to",
+        "former_names",
+        "parents",
+        "lineage",
+        "elections",
+        "indicators"
+      ],
+      "additionalProperties": false
+    },
+    "FormerName": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "valid_from",
+        "valid_to"
+      ],
+      "additionalProperties": false
+    },
+    "ParentLink": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/UnitType"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_en": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depth": {
+          "type": "number",
+          "description": "1 = direct parent."
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name",
+        "name_en",
+        "depth",
+        "valid_from",
+        "valid_to"
+      ],
+      "additionalProperties": false
+    },
+    "LineageEvent": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "$ref": "#/definitions/IsoDate"
+        },
+        "type": {
+          "$ref": "#/definitions/LineageType"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "from",
+            "to"
+          ],
+          "description": "'to': this unit (or part of it) went into the other unit; 'from': the other unit came into this one."
+        },
+        "other_id": {
+          "type": "string"
+        },
+        "other_name": {
+          "type": "string"
+        },
+        "weight": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "date",
+        "type",
+        "direction",
+        "other_id",
+        "other_name",
+        "weight"
+      ],
+      "additionalProperties": false
+    },
+    "UnitElection": {
+      "type": "object",
+      "properties": {
+        "districts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UnitRef"
+          },
+          "description": "Electoral districts this unit lies in (wholly or partly) in this election. Empty above county level."
+        },
+        "turnout": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Turnout"
+          }
+        },
+        "lists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ListResult"
+          },
+          "description": "Party-list votes cast in this unit, by round, most votes first."
+        },
+        "races": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Race"
+          },
+          "description": "Single-member races with votes cast in this unit, one per district and round. Empty above county level."
+        },
+        "district_wins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DistrictWins"
+          },
+          "description": "Above county level only: single-member districts won (final round), per winning party combination."
+        }
+      },
+      "required": [
+        "districts",
+        "turnout",
+        "lists",
+        "races",
+        "district_wins"
+      ],
+      "additionalProperties": false
+    },
+    "UnitRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "Turnout": {
+      "type": "object",
+      "properties": {
+        "round": {
+          "type": "number"
+        },
+        "ballot": {
+          "$ref": "#/definitions/Ballot"
+        },
+        "registered": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "voted": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "valid": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "invalid": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "round",
+        "ballot",
+        "registered",
+        "voted",
+        "valid",
+        "invalid"
+      ],
+      "additionalProperties": false
+    },
+    "ListResult": {
+      "type": "object",
+      "properties": {
+        "round": {
+          "type": "number"
+        },
+        "list_id": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "short_name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "description": "\"#rrggbb\""
+        },
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Short names of the member parties, as they were called at the election."
+        },
+        "votes": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "round",
+        "list_id",
+        "name",
+        "short_name",
+        "color",
+        "parties",
+        "votes"
+      ],
+      "additionalProperties": false
+    },
+    "Race": {
+      "type": "object",
+      "properties": {
+        "district": {
+          "$ref": "#/definitions/UnitRef"
+        },
+        "round": {
+          "type": "number"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CandidateResult"
+          },
+          "description": "Most votes first."
+        }
+      },
+      "required": [
+        "district",
+        "round",
+        "candidates"
+      ],
+      "additionalProperties": false
+    },
+    "CandidateResult": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Short names of the nominating parties; empty = independent."
+        },
+        "color": {
+          "type": "string"
+        },
+        "votes": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "name",
+        "parties",
+        "color",
+        "votes"
+      ],
+      "additionalProperties": false
+    },
+    "DistrictWins": {
+      "type": "object",
+      "properties": {
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Short names of the winning candidates' parties; empty = independent."
+        },
+        "color": {
+          "type": "string"
+        },
+        "districts": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "parties",
+        "color",
+        "districts"
+      ],
+      "additionalProperties": false
+    },
+    "IndicatorValue": {
+      "type": "object",
+      "properties": {
+        "indicator": {
+          "type": "string"
+        },
+        "year": {
+          "type": "number"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "indicator",
+        "year",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ElectionFile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ElectionList"
+          }
+        },
+        "winners": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Unit id -> list_id of the winning party list (round 1), for every unit with results. Colors the map."
+        }
+      },
+      "required": [
+        "id",
+        "lists",
+        "winners"
+      ],
+      "additionalProperties": false
+    },
+    "ElectionList": {
+      "type": "object",
+      "properties": {
+        "list_id": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "short_name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "list_id",
+        "name",
+        "short_name",
+        "color",
+        "parties"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

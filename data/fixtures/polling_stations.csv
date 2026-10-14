@@ -1,0 +1,5 @@
+unit_id,election_id,local_unit_id,district_unit_id,number,address,is_transfer
+polling_station-parliament-2018-99001-001,parliament-2018,settlement-99001,smd-2011-91-01,001,Kamu utca 1. (FAKE),false
+polling_station-parliament-2018-99001-002,parliament-2018,settlement-99001,smd-2011-91-01,002,Kamu utca 2. (FAKE),false
+polling_station-parliament-2018-99001-003,parliament-2018,settlement-99001,smd-2011-91-02,003,Kamu utca 3. (FAKE),false
+polling_station-parliament-2018-99001-004,parliament-2018,settlement-99001,smd-2011-91-02,004,Kamu utca 4. (FAKE),false
