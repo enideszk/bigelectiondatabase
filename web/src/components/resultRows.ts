@@ -1,8 +1,8 @@
 /**
  * Result rows, after the Israel dashboard's national table (hero-results): the share as a
- * translucent bar in the party color behind the row, the name (cut with "…" when too long), and on
- * the right the share with the votes under it. A bar's length is the share itself (the full row =
- * 100%). The leading rows are shown and the rest fold into "Other", which expands. A row can be
+ * translucent bar in the party color behind the row, the name (cut with "…" when too long), the
+ * share, and the votes in a column of their own on the right. A bar's length is the share itself
+ * (the full row = 100%). The leading rows are shown and the rest fold into "Other", which expands. A row can be
  * picked: the map then shows that option's vote share.
  */
 
@@ -99,11 +99,7 @@ function row(item: ResultItem, o: ResultRowsOptions, onOther?: () => void): HTML
     },
     h('i', { class: 'res-bar', style: `width:${width}%;background:${item.color}` }),
     h('span', { class: 'res-main' }, h('span', { class: 'res-name' }, item.label), item.sub ? h('span', { class: 'res-sub' }, item.sub) : null),
-    h(
-      'span',
-      { class: 'res-fig' },
-      h('span', { class: 'res-pct' }, formatShare(item.share, 2)),
-      h('span', { class: 'res-votes' }, typeof item.count === 'number' ? formatInt(item.count) : item.count),
-    ),
+    h('span', { class: 'res-pct' }, formatShare(item.share, 2)),
+    h('span', { class: 'res-votes' }, typeof item.count === 'number' ? formatInt(item.count) : item.count),
   );
 }

@@ -120,3 +120,9 @@ export function renderMapPicker(
   );
   container.replaceChildren(h('label', { class: 'ctl' }, h('span', null, t.mapShows), select));
 }
+
+/** The "Hierarchical map navigation" switch in the toolbar. */
+export function renderNavToggle(container: HTMLElement, on: boolean, onChange: (on: boolean) => void): void {
+  const input = h('input', { type: 'checkbox', role: 'switch', checked: on, onchange: (e: Event) => onChange((e.target as HTMLInputElement).checked) });
+  container.replaceChildren(h('label', { class: 'nav-switch', title: t.navHint }, input, h('span', { class: 'nav-track', 'aria-hidden': 'true' }), h('span', null, t.navToggle)));
+}

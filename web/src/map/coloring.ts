@@ -57,13 +57,29 @@ export interface Coloring {
   legend: Record<Level, Legend> | null;
   /** Step maps: the mapped value of each unit, for the hover card. */
   values: Map<string, string>;
+  /** Winners map: each unit's winning option (legends of a part of the map). */
+  winners: Map<string, ResultOption>;
   /** False when the state asks for something this election / view does not have. */
   valid: boolean;
 }
 
 export const optionLabel = (o: Pick<ResultOption, 'short_name' | 'parties'>) => o.short_name || (o.parties.length ? o.parties.join('–') : t.independent);
 
-const empty = (valid: boolean): Coloring => ({ colors: new Map(), fillOpacity: FILL_OPACITY, legend: null, values: new Map(), valid });
+const empty = (valid: boolean): Coloring => ({ colors: new Map(), fillOpacity: FILL_OPACITY, legend: null, values: new Map(), winners: new Map(), valid });
+
+/** The legend of a level; with `members` (hierarchical navigation) the winners counted among
+ *  those units only. */
+export function legendFor(coloring: Coloring | null, level: Level, members: Set<string> | null): Legend | null {
+  const legend = coloring?.legend?.[level] ?? null;
+  if (!coloring || !legend || !members || legend.kind !== 'winners') return legend;
+  const counts = new Map<ResultOption, number>();
+  for (const id of members) {
+    const option = coloring.winners.get(id);
+    if (option) counts.set(option, (counts.get(option) ?? 0) + 1);
+  }
+  const items = [...counts].sort((a, b) => b[1] - a[1]).map(([o, n]) => ({ label: optionLabel(o), color: o.color, count: n }));
+  return { ...legend, items };
+}
 
 export async function buildColoring(
   election: ElectionFile | null,
@@ -115,10 +131,13 @@ export async function buildColoring(
 
   // winners
   const colors = new Map<string, string>();
+  const winners = new Map<string, ResultOption>();
   const legend = {} as Record<Level, Legend>;
   const wins = new Map<Level, Map<string, number>>(LEVELS.map((l) => [l, new Map()]));
   for (const [unitId, winner] of Object.entries(result.winners)) {
     colors.set(unitId, options.get(winner)?.color ?? NO_DATA_COLOR);
+    const option = options.get(winner);
+    if (option) winners.set(unitId, option);
     const level = levelOf(unitId);
     if (level) wins.get(level)!.set(winner, (wins.get(level)!.get(winner) ?? 0) + 1);
   }
@@ -133,7 +152,7 @@ export async function buildColoring(
         .map((o) => ({ label: optionLabel(o), color: o.color, count: counts.get(o.id) })),
     };
   }
-  return { colors, fillOpacity: FILL_OPACITY, legend, values: new Map(), valid: true };
+  return { colors, fillOpacity: FILL_OPACITY, legend, values: new Map(), winners, valid: true };
 }
 
 /** A step map of `values` in `color`, the steps cut separately for each map level. */
@@ -165,5 +184,5 @@ function steps(
       items: bounds.slice(1).map((upper, i) => ({ label: `${format(bounds[i])}–${format(upper)}`, color: stepColor(color, breaks, i) })),
     };
   }
-  return { colors, fillOpacity: 1, legend, values: labels, valid: true };
+  return { colors, fillOpacity: 1, legend, values: labels, winners: new Map(), valid: true };
 }

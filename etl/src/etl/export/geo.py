@@ -12,8 +12,9 @@ All levels share one set of borders, so no line is drawn twice slightly apart:
 - districts (járás), counties and regions already are unions of settlements;
 - electoral districts are rebuilt from the settlements: a settlement in one district goes in whole,
   and only a settlement split between districts is cut, along the district map (cleaned the same
-  way). The district maps themselves are hand-drawn: their borders miss the settlement borders and
-  each other by up to hundreds of meters, which showed as gaps and double lines.
+  way; slivers, where the map runs along a settlement border, go to the part they share the longest
+  border with). The district maps themselves are hand-drawn: their borders miss the settlement
+  borders and each other by up to hundreds of meters, which showed as gaps and double lines.
 The border mesh (`{name}.lines.json`) holds every border of a file's features once, as lines, per
 period in which the same features are valid; the map draws it above the fills instead of stroking
 each polygon (a shared border stroked by both neighbors looked uneven). Coordinates have 5
@@ -38,6 +39,7 @@ LEVELS: dict[str, tuple[str, ...]] = {
 }
 PRECISION = 5
 GRID = 1e-8  # degrees (~1 mm): snapping when the cut settlement parts are put together
+SLIVER = 1e-6  # square degrees (~0.008 km2): smaller bits of a cut settlement are slivers
 
 _LEVEL_CASE = " ".join(
     f"WHEN u.unit_type IN ({', '.join(repr(t) for t in types)}) THEN '{level}'" for level, types in LEVELS.items()
@@ -57,33 +59,67 @@ WITH district_map AS (
     SELECT g.unit_id, ST_SetSRID(ST_CoverageClean(g.geom) OVER (PARTITION BY ed.district_set_id), 4326) AS geom
     FROM unit_geometry g JOIN electoral_district ed USING (unit_id)
 ), member AS (
-    SELECT dm.local_unit_id, dm.district_unit_id, s.geom,
+    SELECT dm.local_unit_id, ed.district_set_id, dm.district_unit_id, s.geom,
            count(*) OVER (PARTITION BY dm.local_unit_id, ed.district_set_id) AS n
     FROM district_membership dm
     JOIN electoral_district ed ON ed.unit_id = dm.district_unit_id
     JOIN district_set ds USING (district_set_id)
     JOIN geo_settlement s ON s.unit_id = dm.local_unit_id
      AND daterange(s.valid_from, s.valid_to) && daterange(ds.valid_from, ds.valid_to)
-), cut AS (
-    SELECT m.local_unit_id, m.district_unit_id, ST_CollectionExtract(ST_Intersection(m.geom, d.geom), 3) AS geom
+), split AS (
+    -- a settlement in several districts of one set
+    SELECT DISTINCT ON (local_unit_id, district_set_id) local_unit_id, district_set_id, geom
+    FROM member WHERE n > 1
+), cut_piece AS (
+    SELECT m.local_unit_id, m.district_set_id, m.district_unit_id,
+           (ST_Dump(ST_CollectionExtract(ST_Intersection(m.geom, d.geom), 3))).geom AS geom
     FROM member m JOIN district_map d ON d.unit_id = m.district_unit_id
     WHERE m.n > 1
-), leftover AS (
-    -- what the district map leaves uncovered of a split settlement goes to its largest part
-    SELECT DISTINCT ON (c.local_unit_id) c.district_unit_id,
-           ST_CollectionExtract(ST_Difference(m.geom, u.geom), 3) AS geom
-    FROM cut c
-    JOIN (SELECT local_unit_id, ST_Union(geom) AS geom FROM cut GROUP BY local_unit_id) u USING (local_unit_id)
-    JOIN (SELECT DISTINCT ON (local_unit_id) local_unit_id, geom FROM member WHERE n > 1) m USING (local_unit_id)
-    ORDER BY c.local_unit_id, ST_Area(c.geom) DESC
+), part AS (
+    -- the settlement cut along the district map, without the slivers left where the map runs
+    -- along the settlement's border
+    SELECT local_unit_id, district_set_id, district_unit_id, ST_Union(geom) AS geom
+    FROM cut_piece WHERE ST_Area(geom) >= {SLIVER}
+    GROUP BY local_unit_id, district_set_id, district_unit_id
+), rest AS (
+    -- what is left (slivers, and gaps the map leaves), one piece at a time
+    SELECT s.local_unit_id, s.district_set_id, row_number() OVER () AS piece, r.geom
+    FROM split s
+    JOIN (SELECT local_unit_id, district_set_id, ST_Union(geom) AS geom FROM part GROUP BY 1, 2) u
+      USING (local_unit_id, district_set_id)
+    CROSS JOIN LATERAL ST_Dump(ST_CollectionExtract(ST_Difference(s.geom, u.geom), 3)) AS r
+), rest_owner AS (
+    -- each goes to the part it shares the longest border with
+    SELECT DISTINCT ON (r.piece) p.district_unit_id, r.geom
+    FROM rest r JOIN part p USING (local_unit_id, district_set_id)
+    ORDER BY r.piece, ST_Length(ST_Intersection(ST_Boundary(r.geom), ST_Buffer(p.geom, 1e-6))) DESC,
+             ST_Distance(r.geom, p.geom)
+), unplaced AS (
+    -- a split settlement the map gives no real part of: whole to the district it overlaps most
+    SELECT DISTINCT ON (s.local_unit_id, s.district_set_id) m.district_unit_id, s.geom
+    FROM split s
+    JOIN member m USING (local_unit_id, district_set_id)
+    LEFT JOIN cut_piece c ON c.local_unit_id = s.local_unit_id AND c.district_unit_id = m.district_unit_id
+    WHERE NOT EXISTS (SELECT 1 FROM part p WHERE p.local_unit_id = s.local_unit_id AND p.district_set_id = s.district_set_id)
+    ORDER BY s.local_unit_id, s.district_set_id, ST_Area(c.geom) DESC NULLS LAST, m.district_unit_id
 ), piece AS (
     SELECT district_unit_id, geom FROM member WHERE n = 1
-    UNION ALL SELECT district_unit_id, geom FROM cut
-    UNION ALL SELECT district_unit_id, geom FROM leftover
+    UNION ALL SELECT district_unit_id, geom FROM part
+    UNION ALL SELECT district_unit_id, geom FROM rest_owner
+    UNION ALL SELECT district_unit_id, geom FROM unplaced
+), district AS (
+    SELECT district_unit_id AS unit_id, ST_Union(geom, {GRID}) AS geom
+    FROM piece WHERE NOT ST_IsEmpty(geom)
+    GROUP BY district_unit_id
 )
-SELECT district_unit_id AS unit_id, ST_Multi(ST_CollectionExtract(ST_Union(geom, {GRID}), 3)) AS geom
-FROM piece WHERE NOT ST_IsEmpty(geom)
-GROUP BY district_unit_id;
+-- holes and islands below the sliver size are what is left of rounding where pieces meet
+SELECT d.unit_id, ST_Multi(ST_Collect(ARRAY(
+    SELECT ST_MakePolygon(ST_ExteriorRing(p.geom), ARRAY(
+               SELECT ST_InteriorRingN(p.geom, i) FROM generate_series(1, ST_NumInteriorRings(p.geom)) AS i
+               WHERE ST_Area(ST_MakePolygon(ST_InteriorRingN(p.geom, i))) >= {SLIVER}))
+    FROM ST_Dump(ST_CollectionExtract(d.geom, 3)) AS p
+    WHERE ST_Area(p.geom) >= {SLIVER}))) AS geom
+FROM district d;
 
 -- GREATEST/LEAST ignore NULLs, so an open end on one side keeps the other side's bound.
 CREATE TEMP TABLE geo_feature AS
@@ -91,7 +127,9 @@ SELECT CASE {_LEVEL_CASE} END AS level, ed.district_set_id AS district_set,
        u.unit_id, u.name,
        GREATEST(g.valid_from, u.valid_from) AS valid_from,
        LEAST(g.valid_to, u.valid_to) AS valid_to,
-       COALESCE(s.geom, d.geom, g.geom) AS geom
+       -- snapped to the 5-decimal grid the files are written with, here, so that the rounding
+       -- cannot make a ring touch itself (fills and borders snap alike)
+       ST_ReducePrecision(COALESCE(s.geom, d.geom, g.geom), 1e-{PRECISION}) AS geom
 FROM unit_geometry g
 JOIN unit u USING (unit_id)
 LEFT JOIN electoral_district ed ON ed.unit_id = u.unit_id

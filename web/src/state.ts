@@ -21,6 +21,10 @@ export interface AppState {
   /** What the map is colored by besides each area's winner (null): "party:<ResultOption.id>"
    *  (vote share), "turnout" or "indicator:<indicator id>". See map/coloring.ts. */
   map: string | null;
+  /** Hierarchical map navigation: a click opens the area one level down (map/hierarchy.ts). */
+  nav: boolean;
+  /** With `nav`: the area whose units the map shows (null = the whole country). */
+  focus: string | null;
 }
 
 type Listener = (state: AppState, previous: AppState) => void;
@@ -79,6 +83,8 @@ function fromUrl(): AppState {
     round: Number(p.get('round')) || 1,
     level: LEVELS.includes(p.get('level') as Level) ? (p.get('level') as Level) : 'settlement',
     map: p.get('map') || null,
+    nav: p.get('nav') === '1',
+    focus: p.get('nav') === '1' ? p.get('focus') || null : null,
   });
 }
 
@@ -100,5 +106,7 @@ function toUrl(s: AppState): string {
   if (s.view === 'E' && s.round !== 1) p.set('round', String(s.round));
   if (s.level !== 'settlement') p.set('level', s.level);
   if (s.map) p.set('map', s.map);
+  if (s.nav) p.set('nav', '1');
+  if (s.nav && s.focus) p.set('focus', s.focus);
   return `?${p.toString()}`;
 }

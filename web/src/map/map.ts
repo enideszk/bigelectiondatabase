@@ -66,10 +66,18 @@ export interface MapCallbacks {
   describe: (unitId: string) => Node[];
 }
 
-/** One level's units valid on one date. */
+/** What part of the shown level the map draws (hierarchical navigation, see hierarchy.ts). */
+export interface MapScope {
+  /** The units drawn; null = all of the level. */
+  members: Set<string> | null;
+  /** The area to zoom to when it changes; null = the whole country. */
+  focus: FeatureRef | null;
+}
+
+/** One level's units valid on one date (or the members of a scope). */
 interface LevelLayer {
   level: Level;
-  fills: L.GeoJSON;
+  fills: L.FeatureGroup;
   /** The level's borders, each once. */
   mesh: L.GeoJSON | null;
   byId: Map<string, L.Polygon>;
@@ -108,6 +116,11 @@ export class ElectionMap {
   private date: IsoDate | null = null;
   private colors: Promise<MapColors> = Promise.resolve(NO_COLORS);
   private shown: LevelLayer | null = null;
+  private scope: MapScope = { members: null, focus: null };
+  /** The last scoped layer, rebuilt when the scope or the level's layer changes. */
+  private scoped: { base: LevelLayer; members: Set<string>; layer: LevelLayer } | null = null;
+  /** The focus last zoomed to (null = the whole country, as at the start). */
+  private zoomedTo: string | null = null;
   private county: L.GeoJSON | null = null;
   private selected: FeatureRef | null = null;
   private selection: L.LayerGroup | null = null;
@@ -218,6 +231,12 @@ export class ElectionMap {
     return this.render();
   }
 
+  /** Draw only some units of the level, zoomed to their area (hierarchical navigation). */
+  setScope(scope: MapScope): Promise<void> {
+    this.scope = scope;
+    return this.render();
+  }
+
   /** Outline a unit (drawn even while another level is shown), or clear with null. */
   async select(ref: FeatureRef | null): Promise<void> {
     this.selected = ref;
@@ -235,16 +254,18 @@ export class ElectionMap {
     const { level, date } = this;
     if (date === null) return; // no view yet: setView comes first
     const token = ++this.renderToken;
-    const [layer, county, colors] = await Promise.all([
+    const [base, county, colors] = await Promise.all([
       this.layerFor(level, date),
       WITH_COUNTY_OVERLAY.includes(level) ? this.countyMeshFor(date) : null,
       this.colors,
     ]);
     if (token !== this.renderToken) return; // a newer view was asked for meanwhile
     const zoom = this.map.getZoom();
+    const layer = base && this.scope.members ? this.scopedLayer(base, this.scope.members) : base;
     if (layer) {
       this.paint(layer, colors);
-      layer.mesh?.setStyle(meshStyle(layer.level, zoom));
+      if (layer.mesh) layer.mesh.setStyle(meshStyle(layer.level, zoom));
+      else if (layer !== base) layer.fills.setStyle({ weight: meshStyle(layer.level, zoom).weight });
     }
     county?.setStyle(countyStyle(zoom));
     // Add the new layers before removing the old: both happen in the same canvas frame.
@@ -263,7 +284,53 @@ export class ElectionMap {
       this.county = county;
     }
     void this.drawSelection();
+    void this.zoomToFocus();
     this.prefetchLevels(date);
+  }
+
+  /** The members of a scope as a layer of their own: the same polygons, each stroked (the border
+   *  mesh covers the whole level, so it cannot be used for a part of it). */
+  private scopedLayer(base: LevelLayer, members: Set<string>): LevelLayer {
+    if (this.scoped?.base === base && this.scoped.members === members) return this.scoped.layer;
+    const border = meshStyle(base.level, this.map.getZoom());
+    const byId = new Map<string, L.Polygon>();
+    const fills = L.featureGroup();
+    for (const id of members) {
+      const polygon = base.byId.get(id);
+      if (!polygon) continue;
+      const part = L.polygon(polygon.getLatLngs() as Rings, {
+        ...fillStyle(NO_DATA_COLOR),
+        stroke: true,
+        color: border.color,
+        opacity: border.opacity,
+        weight: border.weight,
+        lineJoin: 'round',
+        pane: 'fill',
+        renderer: this.renderers.fill,
+        interactive: false,
+        smoothFactor: 0,
+      });
+      byId.set(id, part);
+      fills.addLayer(part);
+    }
+    const layer: LevelLayer = { level: base.level, fills, mesh: null, byId, painted: null };
+    this.scoped = { base, members, layer };
+    return layer;
+  }
+
+  /** When the focus changed: fly to its area (or back to the whole country). */
+  private async zoomToFocus(): Promise<void> {
+    const { focus } = this.scope;
+    const key = focus?.id ?? null;
+    if (key === this.zoomedTo || this.date === null) return;
+    this.zoomedTo = key;
+    if (!focus) {
+      this.map.flyToBounds(INITIAL_BOUNDS, { padding: [24, 24], duration: 0.6 });
+      return;
+    }
+    const layer = await this.layerFor(focus.level, this.date);
+    const polygon = layer?.byId.get(focus.id);
+    if (polygon && this.zoomedTo === key) this.map.flyToBounds(polygon.getBounds(), { padding: [30, 30], duration: 0.6 });
   }
 
   /** The files of `level` that cover `date`. */
@@ -339,7 +406,8 @@ export class ElectionMap {
   /** Line weights follow the zoom. */
   private restyleLines(): void {
     const zoom = this.map.getZoom();
-    if (this.shown) this.shown.mesh?.setStyle(meshStyle(this.shown.level, zoom));
+    if (this.shown?.mesh) this.shown.mesh.setStyle(meshStyle(this.shown.level, zoom));
+    else this.shown?.fills.setStyle({ weight: meshStyle(this.shown.level, zoom).weight });
     this.county?.setStyle(countyStyle(zoom));
   }
 

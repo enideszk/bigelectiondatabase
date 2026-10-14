@@ -5,10 +5,11 @@ import { renderElectionBar } from './electionBar';
 import { loadElection, loadMeta, loadUnit, loadUnitIndex } from './lib/api';
 import { t } from './lib/i18n';
 import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
-import { levelOfType, validOn } from './lib/units';
+import { displayName, levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
-import { buildColoring, type Coloring } from './map/coloring';
-import { renderLegend, renderMapControl, renderMapPicker, renderViewSwitch } from './map/controls';
+import { buildColoring, legendFor, type Coloring } from './map/coloring';
+import { renderLegend, renderMapControl, renderMapPicker, renderNavToggle, renderViewSwitch } from './map/controls';
+import { Hierarchy, TOP_LEVEL } from './map/hierarchy';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -46,10 +47,33 @@ async function main(): Promise<void> {
   }
   initState(meta);
 
-  /** Selecting a unit also switches the map to the level that shows it. */
+  const hierarchy = new Hierarchy(units);
+  /** With hierarchical navigation: the area shown, moved up past areas that did not exist on the
+   *  date shown (e.g. a region of 2014 after switching to 2022). */
+  const focusOf = (state: AppState): string | null => {
+    let focus = state.nav ? state.focus : null;
+    while (focus !== null && !(units.has(focus) && validOn(units.get(focus)!, viewDate(state)))) focus = hierarchy.parent(focus, viewDate(state));
+    return focus;
+  };
+  /** The units the map draws (null = all of the level). */
+  let members: Set<string> | null = null;
+
+  /** Selecting a unit (search, side panel links) also switches the map to the level that shows it;
+   *  with hierarchical navigation, to the area one up from it, so it shows among its neighbors. */
   const select = (unitId: string) => {
+    const state = getState();
     const level = levelOf(unitId);
-    setState(level ? { unit: unitId, level } : { unit: unitId });
+    if (!level) return setState({ unit: unitId });
+    setState(state.nav ? { unit: unitId, level, focus: hierarchy.parent(unitId, viewDate(state)) } : { unit: unitId, level });
+  };
+
+  /** A click on the map selects the unit; with hierarchical navigation it also opens the area one
+   *  level down (settlements and electoral districts have nothing below: they are only selected). */
+  const click = (unitId: string) => {
+    const state = getState();
+    if (!state.nav) return select(unitId);
+    const child = hierarchy.childLevel(unitId, viewDate(state));
+    setState(child ? { unit: unitId, focus: unitId, level: child } : { unit: unitId });
   };
 
   /** When the pointer rests on a unit, fetch its file so a click shows it at once (files are small and cached). */
@@ -70,7 +94,7 @@ async function main(): Promise<void> {
     const unit = units.get(unitId);
     return unit ? cardContent(unit, units, meta, electionFile, getState().view, coloring?.values.get(unitId)) : [];
   };
-  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: select, onHover: prefetch, describe }, meta.attribution, meta.geo);
+  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: click, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
@@ -100,7 +124,7 @@ async function main(): Promise<void> {
       counts: levelCounts(viewDate(state)),
       elections: meta.elections,
       current: election,
-      onLevel: (level) => setState({ level }),
+      onLevel: (level) => setState(state.nav ? { level, focus: hierarchy.focusFor(focusOf(state), level, viewDate(state)) } : { level }),
       onElection: (e) => setState({ year: e.year, type: e.type }),
     });
     const views = electionFile?.views;
@@ -108,7 +132,17 @@ async function main(): Promise<void> {
     renderMapPicker(byId('party-picker'), state.view, electionFile?.views[state.view]?.options ?? [], meta.indicators, state.map, (value) =>
       setState({ map: value }),
     );
-    renderLegend(byId('legend'), coloring?.legend?.[state.level] ?? null);
+    renderLegend(byId('legend'), legendFor(coloring, state.level, members));
+    renderNavToggle(byId('nav-toggle'), state.nav, (on) => setState(on ? { nav: true, focus: null, level: TOP_LEVEL } : { nav: false, focus: null }));
+    // "Go one up", while an area is open
+    const up = byId('nav-up') as HTMLButtonElement;
+    const focus = focusOf(state);
+    up.hidden = focus === null;
+    if (focus !== null) {
+      const parent = hierarchy.parent(focus, viewDate(state));
+      up.textContent = t.goUp(parent ? displayName(units.get(parent)!) : t.country);
+      up.onclick = () => setState({ focus: parent, level: hierarchy.levelOf(focus) ?? TOP_LEVEL });
+    }
   };
 
   /** Recolor the map for the state's election, view and map choice. The map keeps its colors
@@ -151,6 +185,14 @@ async function main(): Promise<void> {
     }
     if (electionChanged || previous?.view !== state.view || previous?.map !== state.map) recolor(state);
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
+    const focus = focusOf(state);
+    if (!previous || electionChanged || previous.level !== state.level || previous.nav !== state.nav || previous.focus !== state.focus) {
+      members = state.nav ? hierarchy.members(focus, state.level, viewDate(state)) : null;
+      const focusLevel = focus ? hierarchy.levelOf(focus) : null;
+      void map.setScope({ members, focus: focus && focusLevel ? { level: focusLevel, id: focus } : null });
+    }
+    // An area that did not exist on this date: keep the URL in step with the one shown.
+    if (state.nav && focus !== state.focus) queueMicrotask(() => setState({ focus }));
     drawControls();
 
     if (!state.unit || !units.has(state.unit)) {

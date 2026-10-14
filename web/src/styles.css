@@ -248,6 +248,7 @@ input:focus-visible,
 /* Map control (map/controls.ts): one table of three rows - map level, election type, year. The
    widest row sets the width; the cells of the other rows stretch to fill it. */
 .map-control {
+  flex: 0 0 auto;
   display: grid;
   min-width: 0;
   max-width: 100%;
@@ -272,9 +273,89 @@ input:focus-visible,
   padding: 6px 12px;
 }
 
+/* "Hierarchical map navigation": a switch in the space between the two control groups */
+.nav-toggle {
+  align-self: center;
+  flex: 0 1 auto;
+}
+
+.nav-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 150px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--hair);
+  transition: background 0.15s;
+}
+
+.nav-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.nav-switch input:checked + .nav-track {
+  background: #1e3550;
+  border-color: #2b5c8a;
+}
+
+.nav-switch input:checked + .nav-track::after {
+  transform: translateX(13px);
+  background: #bcdcff;
+}
+
+.nav-switch input:focus-visible + .nav-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.nav-switch:hover {
+  color: var(--ink);
+}
+
+/* "Go one up", top left of the map while an area is open */
+.nav-up {
+  top: 10px;
+  left: 10px;
+  padding: 6px 11px;
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.nav-up:hover {
+  background: #242c39;
+}
+
 .toolbar-side {
   flex: 0 1 300px;
-  min-width: 200px;
+  min-width: 220px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -919,7 +1000,7 @@ input:focus-visible,
 
 /* Result rows (components/resultRows.ts), after the Israel dashboard's national table: the share
    as a translucent bar in the party color behind the row (the full row = 100%), the name cut with
-   "…", and the share with the votes under it on the right. */
+   "…", the share, and the votes in a column of their own on the right. */
 .res-rows {
   display: flex;
   flex-direction: column;
@@ -928,10 +1009,10 @@ input:focus-visible,
 .res-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: 12px;
+  min-height: 48px;
   padding: 0 10px;
   border-radius: var(--radius-sm);
 }
@@ -994,25 +1075,22 @@ input:focus-visible,
   white-space: nowrap;
 }
 
-.res-fig {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: 64px;
-}
-
+/* the share, large, and the votes in their own column on the right, small and gray */
 .res-pct {
-  font-size: 19px;
-  font-weight: 680;
+  position: relative;
+  text-align: right;
+  font-size: 21px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
 
 .res-votes {
-  margin-top: 2px;
-  font-size: 11px;
+  position: relative;
+  min-width: 64px;
+  text-align: right;
+  font-size: 12.5px;
   line-height: 1.1;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
@@ -1108,7 +1186,87 @@ input:focus-visible,
     flex-wrap: wrap;
   }
 
-  .toolbar-side {
+  /* "Hierarchical map navigation": a switch in the space between the two control groups */
+.nav-toggle {
+  align-self: center;
+  flex: 0 1 auto;
+}
+
+.nav-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 150px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--hair);
+  transition: background 0.15s;
+}
+
+.nav-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.nav-switch input:checked + .nav-track {
+  background: #1e3550;
+  border-color: #2b5c8a;
+}
+
+.nav-switch input:checked + .nav-track::after {
+  transform: translateX(13px);
+  background: #bcdcff;
+}
+
+.nav-switch input:focus-visible + .nav-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.nav-switch:hover {
+  color: var(--ink);
+}
+
+/* "Go one up", top left of the map while an area is open */
+.nav-up {
+  top: 10px;
+  left: 10px;
+  padding: 6px 11px;
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.nav-up:hover {
+  background: #242c39;
+}
+
+.toolbar-side {
     flex: 1 1 260px;
   }
 }

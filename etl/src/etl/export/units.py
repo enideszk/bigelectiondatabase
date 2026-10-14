@@ -22,19 +22,51 @@ def build_unit_index(ctx: ExportContext) -> dict:
     entries = []
     for unit_id in ctx.clickable_unit_ids:
         unit = ctx.units[unit_id]
-        chain = [a["ancestor_id"] for a in reversed(ctx.ancestors_on(unit_id, _reference_day(unit)))]
-        entries.append(
-            {
-                "id": unit_id,
-                "type": unit["unit_type"],
-                "name": unit["name"],
-                "name_en": unit["name_en"],
-                "parents": chain,
-                "valid_from": iso(unit["valid_from"]),
-                "valid_to": iso(unit["valid_to"]),
-            }
-        )
+        day = _reference_day(unit)
+        chain = _chain(ctx, unit_id, day)
+        entry = {
+            "id": unit_id,
+            "type": unit["unit_type"],
+            "name": unit["name"],
+            "name_en": unit["name_en"],
+            "parents": chain,
+            "valid_from": iso(unit["valid_from"]),
+            "valid_to": iso(unit["valid_to"]),
+        }
+        earlier = _earlier_parents(ctx, unit_id, chain, day)
+        if earlier:
+            entry["earlier_parents"] = earlier
+        if unit["unit_type"] in LOCAL_TYPES and ctx.memberships.get(unit_id):
+            entry["districts"] = sorted(ctx.memberships[unit_id])
+        entries.append(entry)
     return {"units": entries}
+
+
+def _chain(ctx: ExportContext, unit_id: str, day: date) -> list[str]:
+    """Ancestor ids valid on `day`, top (country) first."""
+    return [a["ancestor_id"] for a in reversed(ctx.ancestors_on(unit_id, day))]
+
+
+def _earlier_parents(ctx: ExportContext, unit_id: str, current: list[str], day: date) -> list[dict]:
+    """The ancestor chains of the periods before `day` with an ancestor the current chain does not
+    have, oldest first: [{"until": first day it no longer applies, "parents": [...]}] (e.g. the
+    counties of Central Hungary, a region until 2018). Chains that only lack a level (no járás
+    before 2013) are left out, as are periods before the unit existed."""
+    born = ctx.units[unit_id]["valid_from"]
+    cuts = sorted({d for a in ctx.ancestors.get(unit_id, []) for d in (a["valid_from"], a["valid_to"]) if d and d <= day})
+    out: list[dict] = []
+    for i, end in enumerate(cuts):
+        start = cuts[i - 1] if i else end - timedelta(days=1)
+        if born and end <= born:
+            continue
+        chain = _chain(ctx, unit_id, start)
+        if set(chain) <= set(current):
+            continue
+        if out and out[-1]["parents"] == chain:
+            out[-1]["until"] = iso(end)
+        else:
+            out.append({"until": iso(end), "parents": chain})
+    return out
 
 
 def build_unit_file(ctx: ExportContext, unit_id: str) -> dict:

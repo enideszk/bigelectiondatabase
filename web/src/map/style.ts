@@ -2,15 +2,15 @@
  * Map colors and line styles (Leaflet path options).
  *
  * Fills carry no stroke: every border is drawn once, from the level's border mesh, above the fills
- * (a border stroked by both neighbors looked uneven). The winners map lets a darkened
- * OpenStreetMap show through a little; the step maps are opaque (coloring.ts).
+ * (a border stroked by both neighbors looked uneven). Fills are opaque; the darkened OpenStreetMap
+ * shows around them.
  */
 
 import type { PathOptions } from 'leaflet';
 import type { Level } from '../state';
 
 export const NO_DATA_COLOR = '#262d38';
-export const FILL_OPACITY = 0.8;
+export const FILL_OPACITY = 1;
 const BORDER = '#0b0e13';
 
 /** The OpenStreetMap background: darkened (styles.css .osm-base) and half transparent. */

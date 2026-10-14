@@ -131,7 +131,7 @@ tests validate every file against the generated `types.schema.json`).
 
 ## Website
 
-- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=&map=`).
+- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=&map=&nav=&focus=`).
 - `src/map/`: Leaflet map drawn on canvas (the owner's other dashboards use the same setup). Per
   level, the units valid on the election date become one layer, built once and reused; panes for
   fills, county lines, hover and selection outlines.

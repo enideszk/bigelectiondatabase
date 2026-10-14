@@ -135,7 +135,7 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   behind them, `seg` toggles) follow the owner's Israel 2026 dashboard
   (`..\ilelection\dashboard\styles.css`, `il.css`, `renderDetail()` in `app.js`). Keep new UI
   consistent with it.
-- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&map=`.
+- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&map=&nav=&focus=`.
 - **Page layout** (as the Israel dashboard): a thin election bar across the top; above the map a
   toolbar with the level / election type / year table (`map/controls.ts`) on the left and search,
   the Party lists / Single-member switch and the party picker on the right; the side panel (30%) on the right.
@@ -163,11 +163,21 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   panel), or a step map: `party:<option>` vote share, `turnout`, or `indicator:<id>` (the year
   closest to the election). Step maps: steps holding equal numbers of areas (sixths + top 5%, cut
   per level), colors mixed in Lab from near-white (lowest) to the color darkened and saturated a
-  little (highest), opaque fills; the winners map keeps translucent fills over the OSM background.
+  little (highest). All fills are opaque (`FILL_OPACITY` 1); OSM shows around the units.
   Shares come from `data/shares/{election}/{view}/{option}.json`, indicators from
   `data/indicators/{id}.json`, fetched when picked. Option ids are the parties' ids joined by "-"
   in both views, so a party stays selected across years and views; clicking a result row in the
   side panel picks it.
+- **Hierarchical map navigation** (toolbar switch, `?nav=1&focus=<unit>`, off by default; off =
+  the old behavior): `map/hierarchy.ts` walks large region -> region -> county -> electoral
+  district (OEVK) -> settlement (owner's choice: not the járások, which stay reachable with the
+  level buttons) by the units' parents on the shown date (`UnitIndexEntry.earlier_parents` holds
+  the pre-2018 Central Hungary chains; districts hang under their county by code; a settlement's
+  districts are `UnitIndexEntry.districts`, the set in force on the date). A map click selects the unit and opens it
+  (shows its units one level down, `ElectionMap.setScope`, flies to it); search / panel links
+  open the unit's parent; level buttons move the focus up when needed; "Go one up" (map, top
+  left) returns to the parent. A scoped layer strokes its polygons (the border mesh covers the
+  whole level). The legend counts winners among the shown units.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
   drop the moves in between, so the highlight trailed the cursor). Fill polygons are
   `interactive: false`, panes take no pointer events; the map reads the raw mouse position once

@@ -99,8 +99,20 @@ export interface UnitIndexEntry {
   name_en: string | null;
   /** Ancestor ids, top (country) first, valid on the unit's last day (today if it still exists). */
   parents: string[];
+  /** Earlier ancestor chains that differ from `parents`, oldest first: each applies before its
+   *  `until` date (e.g. the counties of Central Hungary, a region until 2018). */
+  earlier_parents?: EarlierParents[];
+  /** Settlements and Budapest districts: the electoral districts (of every district set) they lie
+   *  in, wholly or partly. */
+  districts?: string[];
   valid_from: IsoDate | null;
   valid_to: IsoDate | null;
+}
+
+export interface EarlierParents {
+  /** First day this chain no longer applies. */
+  until: IsoDate;
+  parents: string[];
 }
 
 // ---- data/units/{id}.json ------------------------------------------------------------------

@@ -333,6 +333,20 @@
           },
           "description": "Ancestor ids, top (country) first, valid on the unit's last day (today if it still exists)."
         },
+        "earlier_parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EarlierParents"
+          },
+          "description": "Earlier ancestor chains that differ from `parents`, oldest first: each applies before its `until` date (e.g. the counties of Central Hungary, a region until 2018)."
+        },
+        "districts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Settlements and Budapest districts: the electoral districts (of every district set) they lie in, wholly or partly."
+        },
         "valid_from": {
           "anyOf": [
             {
@@ -362,6 +376,26 @@
         "parents",
         "valid_from",
         "valid_to"
+      ],
+      "additionalProperties": false
+    },
+    "EarlierParents": {
+      "type": "object",
+      "properties": {
+        "until": {
+          "$ref": "#/definitions/IsoDate",
+          "description": "First day this chain no longer applies."
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "until",
+        "parents"
       ],
       "additionalProperties": false
     },

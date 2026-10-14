@@ -1,7 +1,7 @@
 /**
  * The side panel, laid out like the Israel dashboard's detail panel:
  *   head (name, next larger area, close) · kind · parents · districts · lineage notes
- *   participation (with the ballot papers) · results (L / E) · indicators
+ *   results (L / E) · participation (with the ballot papers) · indicators
  * The election shown is named in the bar at the top of the page.
  */
 
@@ -19,7 +19,7 @@ export function renderSidebar(container: HTMLElement, ctx: SidebarContext): void
   if (!ctx.election) body.push(h('p', { class: 'd-note' }, t.noElections));
   else if (!validOn(ctx.unit, ctx.date)) body.push(h('p', { class: 'd-note' }, t.notExisting(displayName(ctx.unit))));
   else if (!ctx.results) body.push(h('p', { class: 'd-note' }, t.noDataForElection));
-  else body.push(...renderTurnout(ctx), ...renderResults(ctx));
+  else body.push(...renderResults(ctx), ...renderTurnout(ctx));
   body.push(...renderIndicators(ctx));
   const scroll = container.querySelector('.side-body')?.scrollTop ?? 0;
   const bodyEl = h('div', { class: 'side-body' }, ...body);
