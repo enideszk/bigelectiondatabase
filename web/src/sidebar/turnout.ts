@@ -1,4 +1,7 @@
-/** Participation (ring + voted / did not vote) and the ballot counts. */
+/**
+ * Participation: a small ring with voted / did not vote beside it, and under them the ballot papers
+ * (in the box, invalid, valid), as on the official results pages.
+ */
 
 import { h } from '../components/dom';
 import { donut } from '../components/donut';
@@ -14,13 +17,9 @@ export function pickTurnout(rows: Turnout[], view: 'L' | 'E', round: number): Tu
   return inRound.find((r) => r.ballot === (view === 'E' ? 'candidate' : 'list')) ?? inRound[0];
 }
 
-function selectedTurnout(ctx: SidebarContext): Turnout | undefined {
-  return pickTurnout(ctx.results?.turnout ?? [], ctx.state.view, ctx.state.round);
-}
-
 export function renderTurnout(ctx: SidebarContext): HTMLElement[] {
   const head = h('h4', { class: 'd-h' }, t.participation);
-  const row = selectedTurnout(ctx);
+  const row = pickTurnout(ctx.results?.turnout ?? [], ctx.state.view, ctx.state.round);
   if (!row || row.registered === null || row.voted === null || row.registered === 0) {
     return [head, h('p', { class: 'd-empty' }, t.noTurnout)];
   }
@@ -33,27 +32,28 @@ export function renderTurnout(ctx: SidebarContext): HTMLElement[] {
       h('i', { class: cls }),
       h('div', null, h('div', { class: 'd-tlabel' }, label), h('div', { class: 'd-tval' }, h('b', null, formatShare(part, 2)), ` (${formatInt(count)})`)),
     );
-  return [
-    head,
+  const block = h(
+    'div',
+    { class: 'd-participation' },
     h(
       'div',
       { class: 'd-turnout' },
       donut(share, `${t.turnout}: ${formatShare(share, 2)}`),
+      h('div', { class: 'd-tlegend' }, entry('v', t.voted, share, row.voted), entry('nv', t.didNotVote, 1 - share, row.registered - row.voted)),
+    ),
+  );
+  if (row.valid !== null && row.invalid !== null && row.valid + row.invalid > 0) {
+    const cast = row.valid + row.invalid;
+    const line = (label: string, value: (Node | string)[]) => h('div', { class: 'd-bline' }, h('span', null, label), h('strong', null, ...value));
+    block.append(
       h(
         'div',
-        { class: 'd-tlegend' },
-        entry('v', t.voted, share, row.voted),
-        entry('nv', t.didNotVote, 1 - share, row.registered - row.voted),
+        { class: 'd-ballots' },
+        line(t.ballotsCast, [formatInt(cast)]),
+        line(t.invalidBallots, [formatShare(row.invalid / cast, 2), h('small', null, ` (${formatInt(row.invalid)})`)]),
+        line(t.validBallots, [formatShare(row.valid / cast, 2), h('small', null, ` (${formatInt(row.valid)})`)]),
       ),
-    ),
-  ];
-}
-
-export function renderBallots(ctx: SidebarContext): HTMLElement[] {
-  const row = selectedTurnout(ctx);
-  if (!row || row.valid === null || row.invalid === null) return [];
-  const cast = row.valid + row.invalid;
-  const stat = (label: string, n: number) =>
-    h('div', { class: 'd-stat' }, h('span', null, label), h('strong', null, formatInt(n), ' ', h('small', null, cast ? formatShare(n / cast) : '')));
-  return [h('h4', { class: 'd-h' }, t.ballots), h('div', { class: 'd-stats' }, stat(t.valid, row.valid), stat(t.invalid, row.invalid))];
+    );
+  }
+  return [head, block];
 }

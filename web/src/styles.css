@@ -1,5 +1,5 @@
-/* Dark theme. Tokens and the side-panel pattern follow the Israel 2026 dashboard
-   (ilelection/dashboard/styles.css + il.css). */
+/* Dark theme. Tokens, the toolbar over the map and the side-panel pattern follow the Israel 2026
+   dashboard (ilelection/dashboard/styles.css + il.css). */
 
 :root {
   --plane: #090b0f;
@@ -81,6 +81,31 @@ select {
   text-align: center;
 }
 
+/* The election shown, in a thin bar across the whole page. */
+.election-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 14px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hair);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.election-bar strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.eb-sep {
+  color: var(--ink-4);
+}
+
 #app {
   flex: 1;
   min-height: 0;
@@ -119,6 +144,24 @@ input:focus-visible,
 .btn-ghost {
   background: transparent;
   border-color: transparent;
+}
+
+/* a labelled select: "Map [ ... ]" */
+.ctl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.ctl select {
+  flex: 1;
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .seg {
@@ -178,38 +221,38 @@ input:focus-visible,
   font-size: 11px;
 }
 
-/* ---- map ----------------------------------------------------------------------------- */
+/* ---- map side: toolbar over the map ------------------------------------------------ */
 
 #map-pane {
   position: relative;
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--plane);
 }
 
-/* z-index 0 keeps Leaflet's panes (z-index 400+) in their own stacking context, below the overlays. */
-#map {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.map-overlay {
-  position: absolute;
-  z-index: 2;
-  background: rgba(18, 22, 29, 0.94);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+/* The bar above the map (as the Israel map panel's head): the level / election table on the left,
+   search and the party picker on the right. */
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hair);
 }
 
 /* Map control (map/controls.ts): one table of three rows - map level, election type, year. The
    widest row sets the width; the cells of the other rows stretch to fill it. */
 .map-control {
-  top: 10px;
-  left: 10px;
-  max-width: calc(100% - 20px);
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -226,13 +269,124 @@ input:focus-visible,
 
 .map-control .seg button {
   flex: 1 1 auto;
-  padding: 7px 12px;
+  padding: 6px 12px;
+}
+
+.toolbar-side {
+  flex: 0 1 300px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.search {
+  position: relative;
+}
+
+.search input {
+  width: 100%;
+  padding: 6px 10px;
+}
+
+.search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.search-results li {
+  border-bottom: 1px solid var(--hair-soft);
+}
+
+.search-results li:last-child {
+  border-bottom: 0;
+}
+
+.search-results button {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 11px;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-results button:hover,
+.search-results button:focus-visible {
+  background: var(--surface-3);
+  outline: none;
+}
+
+.search-results .rmeta {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.search-results .rkind {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.search-results .empty {
+  padding: 7px 11px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+/* ---- map ----------------------------------------------------------------------------- */
+
+.map-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* z-index 0 keeps Leaflet's panes (z-index 400+) in their own stacking context, below the overlays. */
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* OpenStreetMap under the units: inverted and dimmed to sit in the dark theme (as in the Israel
+   dashboard), and half transparent (map/style.ts). */
+.osm-base {
+  filter: invert(1) hue-rotate(180deg) brightness(0.55) contrast(0.9) saturate(0.4);
+}
+
+.map-overlay {
+  position: absolute;
+  z-index: 2;
+  background: rgba(18, 22, 29, 0.94);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .legend {
   left: 10px;
   bottom: 10px;
-  max-width: calc(100% - 20px);
+  max-width: calc(100% - 90px);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -260,6 +414,40 @@ input:focus-visible,
   font-weight: 650;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* vote-share steps: a swatch per step with its range under it */
+.legend-steps {
+  display: flex;
+  gap: 2px;
+}
+
+.legend-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.legend-step i {
+  display: block;
+  width: 58px;
+  height: 11px;
+}
+
+.legend-step:first-child i {
+  border-radius: 3px 0 0 3px;
+}
+
+.legend-step:last-child i {
+  border-radius: 0 3px 3px 0;
+}
+
+.legend-step small {
+  font-size: 9.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .swatch {
@@ -445,81 +633,6 @@ input:focus-visible,
   border-left: 1px solid var(--hair);
 }
 
-.search {
-  position: relative;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--hair-soft);
-}
-
-.search input {
-  width: 100%;
-  padding: 7px 10px;
-}
-
-.search-results {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: calc(100% - 4px);
-  z-index: 20;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 320px;
-  overflow: auto;
-  background: var(--surface-2);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-}
-
-.search-results li {
-  border-bottom: 1px solid var(--hair-soft);
-}
-
-.search-results li:last-child {
-  border-bottom: 0;
-}
-
-.search-results button {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  width: 100%;
-  padding: 7px 11px;
-  border: 0;
-  background: none;
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.search-results button:hover,
-.search-results button:focus-visible {
-  background: var(--surface-3);
-  outline: none;
-}
-
-.search-results .rmeta {
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.search-results .rkind {
-  margin-left: auto;
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-.search-results .empty {
-  padding: 7px 11px;
-  color: var(--ink-3);
-  font-size: 12.5px;
-}
-
 #sidebar-content {
   flex: 1;
   min-height: 0;
@@ -529,20 +642,34 @@ input:focus-visible,
 
 .side-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 12px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--hair-soft);
   flex: none;
 }
 
-.side-head h3 {
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+.side-title {
+  min-width: 0;
+}
+
+.side-head h2 {
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
   overflow-wrap: anywhere;
+}
+
+.side-region {
+  margin-top: 3px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.side-region .d-link {
+  color: var(--ink-2);
 }
 
 .btn-close {
@@ -565,7 +692,7 @@ input:focus-visible,
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 12px 14px 24px;
+  padding: 10px 14px 24px;
 }
 
 .side-empty {
@@ -577,9 +704,7 @@ input:focus-visible,
 .d-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  flex-wrap: wrap;
   margin-bottom: 6px;
 }
 
@@ -618,34 +743,6 @@ input:focus-visible,
 
 .d-sep {
   color: var(--ink-4);
-}
-
-.state-pill {
-  display: inline-block;
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.state-pill.none {
-  background: var(--surface-3);
-  color: var(--ink-3);
-  border: 1px solid var(--hair);
-}
-
-.state-pill.done {
-  background: #0e2419;
-  color: #8ff0bb;
-  border: 1px solid #1c5c3a;
-}
-
-.state-pill.hist {
-  background: #161c2b;
-  color: #9fb4e0;
-  border: 1px solid #2b3856;
 }
 
 .d-note {
@@ -694,37 +791,25 @@ input:focus-visible,
   margin-left: 5px;
 }
 
-.d-election {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 8px 9px;
+/* participation: a small ring, voted / did not vote beside it (each with a tall color key), and
+   the ballot papers under them */
+.d-participation {
+  padding: 10px 12px;
   background: var(--surface-2);
   border: 1px solid var(--hair-soft);
   border-radius: var(--radius-sm);
 }
 
-.d-election-title {
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.3;
-}
-
-/* turnout: a thick ring, and beside it voted / did not vote, each with a tall color key */
 .d-turnout {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--hair-soft);
-  border-radius: var(--radius-sm);
+  gap: 16px;
 }
 
 .d-donut {
   flex: none;
-  width: 104px;
-  height: 104px;
+  width: 72px;
+  height: 72px;
 }
 
 .d-donut circle {
@@ -743,20 +828,20 @@ input:focus-visible,
 .d-tlegend {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .d-titem {
   display: flex;
   align-items: stretch;
-  gap: 10px;
+  gap: 9px;
 }
 
 .d-titem > i {
   flex: none;
-  width: 9px;
-  min-height: 42px;
+  width: 7px;
+  min-height: 32px;
   border-radius: 3px;
   background: var(--track);
 }
@@ -766,119 +851,180 @@ input:focus-visible,
 }
 
 .d-tlabel {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .d-tval {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .d-tval b {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink);
 }
 
-/* result rows: name, share, votes; a translucent party-colored bar behind the row */
-.d-rows {
+.d-ballots {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hair-soft);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
 }
 
-.d-row {
+.d-bline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.d-bline strong {
+  font-weight: 650;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.d-bline small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+/* Result rows (components/resultRows.ts), after the Israel dashboard's national table: the share
+   as a translucent bar in the party color behind the row, the name cut with "…", and the share
+   with the votes under it on the right. */
+.res-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.res-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px 64px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
-  padding: 4px 7px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.d-row .rname {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.d-row .rtext {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.d-row .rsub {
-  display: block;
-  font-size: 10.5px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.d-row .rpct {
-  position: relative;
-  text-align: right;
-  font-weight: 650;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-
-.d-row .rvotes {
-  position: relative;
-  text-align: right;
-  color: var(--ink-2);
-  font-size: 11px;
-}
-
-.d-row.lead .rtext {
-  font-weight: 600;
-}
-
-.d-bar {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
-  pointer-events: none;
 }
 
-.d-bar > i {
-  display: block;
-  height: 100%;
-  opacity: 0.22;
+.res-row.clickable {
+  cursor: pointer;
+}
+
+.res-row.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.res-bar {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
   border-radius: 0 3px 3px 0;
+  opacity: 0.22;
+  pointer-events: none;
   transition: width 0.55s cubic-bezier(0.3, 0.8, 0.4, 1);
 }
 
-/* short-name chip in the party's color, like the list letters in the Israel dashboard */
-.chip {
-  flex: none;
-  display: inline-block;
-  min-width: 28px;
-  padding: 0 5px;
-  border-radius: 3px;
-  font-size: 9.5px;
-  line-height: 15px;
-  font-weight: 600;
-  text-align: center;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--c) 45%, var(--surface-1));
-  box-shadow: inset 0 0 0 1px rgba(242, 245, 249, 0.16);
+.res-row.clickable:hover .res-bar {
+  opacity: 0.34;
 }
 
-.chip.ind {
-  background: var(--surface-3);
+/* the party on the map: its row stands out */
+.res-row.picked {
+  box-shadow: inset 0 0 0 1px rgba(242, 245, 249, 0.35);
+}
+
+.res-row.picked .res-bar {
+  opacity: 0.4;
+}
+
+.res-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.res-name {
+  font-size: 15.5px;
+  font-weight: 550;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.res-sub {
+  font-size: 11px;
+  line-height: 1.3;
   color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.res-fig {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 64px;
+}
+
+.res-pct {
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.res-votes {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.res-row.other .res-name {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.res-row.other .res-name::after {
+  content: ' ▾';
+  color: var(--ink-3);
+}
+
+.res-fewer {
+  align-self: flex-start;
+  margin: 2px 0 0 10px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.res-fewer:hover {
+  text-decoration: underline;
 }
 
 .d-race + .d-race {
@@ -886,47 +1032,13 @@ input:focus-visible,
 }
 
 .d-race-name {
-  margin: 0 0 4px 7px;
+  margin: 0 0 4px 10px;
   font-size: 12px;
   font-weight: 600;
 }
 
 .d-rounds {
   margin-bottom: 8px;
-}
-
-.d-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.d-stat {
-  background: var(--surface-2);
-  border: 1px solid var(--hair-soft);
-  border-radius: var(--radius-sm);
-  padding: 6px 9px;
-}
-
-.d-stat > span:first-child {
-  display: block;
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.d-stat strong {
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.d-stat strong small {
-  font-size: 11px;
-  color: var(--ink-3);
-  font-weight: 500;
 }
 
 /* tables (indicators) */
@@ -972,7 +1084,17 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
-/* ---- phone: the side panel becomes a bottom panel -------------------------------------- */
+/* ---- narrow screens: the toolbar wraps; on a phone the side panel goes below ------------ */
+
+@media (max-width: 1100px) {
+  .toolbar {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-side {
+    flex: 1 1 260px;
+  }
+}
 
 @media (max-width: 760px) {
   #app {
@@ -980,23 +1102,19 @@ input:focus-visible,
   }
 
   #map-pane {
-    flex: 1 1 48%;
+    flex: 1 1 52%;
   }
 
   #sidebar {
     width: auto;
     min-width: 0;
-    flex: 1 1 52%;
+    flex: 1 1 48%;
     border-left: 0;
     border-top: 1px solid var(--hair);
   }
 
   .legend {
     display: none;
-  }
-
-  .d-row {
-    grid-template-columns: minmax(0, 1fr) 52px 58px;
   }
 }
 

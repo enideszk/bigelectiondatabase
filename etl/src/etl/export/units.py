@@ -123,7 +123,8 @@ def _candidate_display(ctx: ExportContext, candidate_id: int, votes: int) -> dic
         "candidate_id": candidate_id,
         "name": cand["name"],
         "parties": [ctx.party_short_name(p, day) for p in cand["party_ids"]],
-        "color": ctx.party_color(cand["party_ids"]),
+        "color": ctx.group_display(cand["party_ids"], cand["election_id"])["color"],
+        "option": ctx.group_display(cand["party_ids"], cand["election_id"])["id"],
         "votes": votes,
     }
 
@@ -162,6 +163,11 @@ def _district_wins(ctx: ExportContext, unit: dict, election: dict) -> list[dict]
         wins[key] = wins.get(key, 0) + 1
     day = election["election_date"]
     return [
-        {"parties": [ctx.party_short_name(p, day) for p in key], "color": ctx.party_color(list(key)), "districts": n}
+        {
+            "parties": [ctx.party_short_name(p, day) for p in key],
+            "color": ctx.group_display(list(key), election_id)["color"],
+            "option": ctx.group_display(list(key), election_id)["id"],
+            "districts": n,
+        }
         for key, n in sorted(wins.items(), key=lambda kv: -kv[1])
     ]

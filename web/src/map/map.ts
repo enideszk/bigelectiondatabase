@@ -1,12 +1,16 @@
 /**
- * The Leaflet map: unit boundaries from the GeoJSON files in data/geo/, drawn on canvas, colored
- * by the winning party list, with a hover card, click and a selection outline.
+ * The Leaflet map: unit boundaries from the GeoJSON files in data/geo/, drawn on canvas over a
+ * darkened OpenStreetMap, colored as the caller says (winners or a vote share, see coloring.ts),
+ * with a hover card, click and a selection outline.
  *
- * Each level's units valid on a date become one Leaflet layer, built once and kept: every election
- * since the last boundary change reuses it, so switching the year only repaints colors, and
- * switching the level swaps two prebuilt layers on the same canvas. Nothing is shown until both
- * the boundaries and the colors are there, so the previous view stays up until the new one is
- * ready (no flash). Hover and selection outlines live on their own canvases above the fills.
+ * Each level's units valid on a date become one layer (fills + the level's border mesh), built once
+ * and kept: every election since the last boundary change reuses it, so switching the year or the
+ * coloring only repaints fills, and switching the level swaps two prebuilt layers on the same
+ * canvas. Nothing changes on screen until both the boundaries and the colors are there, so the
+ * previous view stays up until the new one is ready (no flash). Borders are drawn once, from the
+ * mesh, above the fills; on the finer levels the county borders go on top. Hover and selection
+ * outlines live on their own canvases. Paths are not simplified (smoothFactor 0): Leaflet simplifies
+ * each path on its own, so neighbors' shared borders drifted apart and left gaps.
  *
  * Hover does not use Leaflet's canvas events: its renderer checks the pointer at most every 32 ms
  * and drops the moves in between (Canvas._handleMouseHover), so the highlight trailed the cursor
@@ -20,17 +24,18 @@
 import type { Feature } from 'geojson';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { loadGeo } from '../lib/api';
-import type { ElectionFile, GeoFeature, GeoFileMeta, IsoDate } from '../lib/types';
+import { loadGeo, loadGeoLines } from '../lib/api';
+import type { GeoFeature, GeoFileMeta, GeoLinesFeature, IsoDate } from '../lib/types';
 import { validOn } from '../lib/units';
 import { LEVELS, type Level } from '../state';
-import { HOVER_STYLE, NO_DATA_COLOR, SELECTION_STYLES, borderWeight, fillStyle, overlayStyle, winnerColors } from './style';
+import { HOVER_STYLE, NO_DATA_COLOR, OSM_OPACITY, OSM_URL, SELECTION_STYLES, countyStyle, fillStyle, meshStyle } from './style';
 
 /** Levels drawn with the county borders on top, for orientation. */
 const WITH_COUNTY_OVERLAY: Level[] = ['settlement', 'jaras', 'smd'];
 
-/** Drawing panes, bottom to top. None takes pointer events: the map hit-tests itself. */
-const PANES = { fill: 400, lines: 410, hover: 420, select: 430 } as const;
+/** Drawing panes, bottom to top (the OSM tiles are below, in Leaflet's tile pane). None takes
+ *  pointer events: the map hit-tests itself. */
+const PANES = { fill: 400, mesh: 410, county: 415, hover: 420, select: 430 } as const;
 type Pane = keyof typeof PANES;
 
 /** Shown until the first boundaries are in (Hungary). */
@@ -55,10 +60,13 @@ export interface MapCallbacks {
 
 /** One level's units valid on one date. */
 interface LevelLayer {
-  group: L.GeoJSON;
+  level: Level;
+  fills: L.GeoJSON;
+  /** The level's borders, each once. */
+  mesh: L.GeoJSON | null;
   byId: Map<string, L.Polygon>;
-  /** What the layer was last painted with; repainted only when that changes. */
-  painted: { colors: Map<string, string>; weight: number } | null;
+  /** The colors it was last painted with; repainted only when they change. */
+  painted: Map<string, string> | null;
 }
 
 interface Hit {
@@ -84,14 +92,15 @@ function contains(polygon: L.Polygon, layerPoint: L.Point): boolean {
 export class ElectionMap {
   private readonly map: L.Map;
   private readonly renderers: Record<Pane, L.Canvas>;
-  /** Built layers by level, date-independent key (see layerFor). */
+  /** Built layers and county meshes, by a date-independent key (see layerFor). */
   private readonly layers = new Map<string, LevelLayer>();
+  private readonly countyMeshes = new Map<string, L.GeoJSON>();
   private readonly prefetched = new Set<IsoDate>();
   private level: Level = 'settlement';
   private date: IsoDate | null = null;
   private colors: Promise<Map<string, string>> = Promise.resolve(new Map());
   private shown: LevelLayer | null = null;
-  private overlay: LevelLayer | null = null;
+  private county: L.GeoJSON | null = null;
   private selected: FeatureRef | null = null;
   private selection: L.LayerGroup | null = null;
   private renderToken = 0;
@@ -133,10 +142,12 @@ export class ElectionMap {
     }
     this.renderers = {
       fill: L.canvas({ pane: 'fill', padding: 0.4 }),
-      lines: L.canvas({ pane: 'lines', padding: 0.4 }),
+      mesh: L.canvas({ pane: 'mesh', padding: 0.4 }),
+      county: L.canvas({ pane: 'county', padding: 0.4 }),
       hover: L.canvas({ pane: 'hover', padding: 0.4 }),
       select: L.canvas({ pane: 'select', padding: 0.4 }),
     };
+    L.tileLayer(OSM_URL, { maxZoom: 19, opacity: OSM_OPACITY, className: 'osm-base' }).addTo(this.map);
     this.map.fitBounds(INITIAL_BOUNDS, { padding: [24, 24], animate: false });
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
     if (attribution.length) {
@@ -160,6 +171,11 @@ export class ElectionMap {
       this.unhover();
     });
     window.addEventListener('scroll', () => (this.box = null), { passive: true, capture: true });
+    // The container follows the page layout (toolbar, side panel), not only the window.
+    new ResizeObserver(() => {
+      this.map.invalidateSize();
+      this.box = null;
+    }).observe(container);
     this.map.on('resize', () => (this.box = null));
     this.map.on('movestart zoomstart', () => {
       this.moving = true;
@@ -170,18 +186,18 @@ export class ElectionMap {
       this.moving = false;
       this.requestFrame();
     });
-    this.map.on('zoomend', () => this.repaint());
+    this.map.on('zoomend', () => this.restyleLines());
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       const hit = this.hitTest(e.containerPoint);
       if (hit) this.callbacks.onSelect(hit.id);
     });
   }
 
-  /** Show the boundaries valid on `date`, colored by the election's winners (gray without one).
-   *  The election file may still be loading: the map changes once both it and the boundaries are in. */
-  setView(date: IsoDate, election: Promise<ElectionFile | null>): Promise<void> {
+  /** Show the boundaries valid on `date` in these colors (unit id -> color; others gray). The
+   *  colors may still be loading: the map changes once both they and the boundaries are in. */
+  setView(date: IsoDate, colors: Promise<Map<string, string>>): Promise<void> {
     this.date = date;
-    this.colors = election.then(winnerColors).catch((error) => {
+    this.colors = colors.catch((error) => {
       console.error(error);
       return new Map<string, string>();
     });
@@ -211,87 +227,110 @@ export class ElectionMap {
     const { level, date } = this;
     if (date === null) return; // no view yet: setView comes first
     const token = ++this.renderToken;
-    const [layer, overlay, colors] = await Promise.all([
+    const [layer, county, colors] = await Promise.all([
       this.layerFor(level, date),
-      WITH_COUNTY_OVERLAY.includes(level) ? this.layerFor('county', date, true) : null,
+      WITH_COUNTY_OVERLAY.includes(level) ? this.countyMeshFor(date) : null,
       this.colors,
     ]);
     if (token !== this.renderToken) return; // a newer view was asked for meanwhile
     const zoom = this.map.getZoom();
-    if (layer) this.paint(layer, colors, zoom);
-    if (overlay) overlay.group.setStyle(overlayStyle(zoom));
-    // Add the new layer before removing the old: both happen in the same canvas frame.
+    if (layer) {
+      this.paint(layer, colors);
+      layer.mesh?.setStyle(meshStyle(layer.level, zoom));
+    }
+    county?.setStyle(countyStyle(zoom));
+    // Add the new layers before removing the old: both happen in the same canvas frame.
     if (layer !== this.shown) {
       this.unhover();
-      layer?.group.addTo(this.map);
-      this.shown?.group.remove();
+      layer?.fills.addTo(this.map);
+      layer?.mesh?.addTo(this.map);
+      this.shown?.fills.remove();
+      this.shown?.mesh?.remove();
       this.shown = layer;
       this.requestFrame(); // hover whatever is now under the cursor
     }
-    if (overlay !== this.overlay) {
-      overlay?.group.addTo(this.map);
-      this.overlay?.group.remove();
-      this.overlay = overlay;
+    if (county !== this.county) {
+      county?.addTo(this.map);
+      this.county?.remove();
+      this.county = county;
     }
     void this.drawSelection();
     this.prefetchLevels(date);
   }
 
+  /** The files of `level` that cover `date`. */
+  private filesFor(level: Level, date: IsoDate): GeoFileMeta[] {
+    return this.geoFiles.filter((g) => g.level === level && validOn(g, date));
+  }
+
   /** The layer with `level`'s units valid on `date`, built on first use (null: no boundaries). */
-  private async layerFor(level: Level, date: IsoDate, asOverlay = false): Promise<LevelLayer | null> {
-    const files = this.geoFiles.filter((g) => g.level === level && validOn(g, date));
+  private async layerFor(level: Level, date: IsoDate): Promise<LevelLayer | null> {
+    const files = this.filesFor(level, date);
     if (files.length === 0) return null;
-    const collections = await Promise.all(files.map((f) => loadGeo(f.file)));
+    const [collections, meshes] = await Promise.all([
+      Promise.all(files.map((f) => loadGeo(f.file))),
+      Promise.all(files.map((f) => loadGeoLines(f.lines))),
+    ]);
     const features = collections.flatMap((c) => c.features).filter((f) => validOn(f.properties, date));
+    const lines = meshes.flatMap((c) => c.features).filter((f) => validOn(f.properties, date));
     // Dates that select the same geometry versions share one layer.
     const versions = [...new Set(features.map((f) => `${f.properties.valid_from}/${f.properties.valid_to}`))].sort();
-    const key = [asOverlay ? 'overlay' : 'fill', ...files.map((f) => f.file), ...versions].join('|');
+    const key = [...files.map((f) => f.file), ...versions].join('|');
     let layer = this.layers.get(key);
     if (!layer) {
-      layer = asOverlay ? this.buildOverlay(features) : this.buildFill(features);
+      layer = this.buildLayer(level, features, lines);
       this.layers.set(key, layer);
     }
     return layer;
   }
 
-  private buildFill(features: GeoFeature[]): LevelLayer {
+  /** The county borders valid on `date`, from the county mesh. */
+  private async countyMeshFor(date: IsoDate): Promise<L.GeoJSON | null> {
+    const files = this.filesFor('county', date);
+    if (files.length === 0) return null;
+    const meshes = await Promise.all(files.map((f) => loadGeoLines(f.lines)));
+    const lines = meshes.flatMap((c) => c.features).filter((f) => validOn(f.properties, date));
+    const key = lines.map((f) => `${f.properties.valid_from}/${f.properties.valid_to}`).join('|');
+    let mesh = this.countyMeshes.get(key);
+    if (!mesh) {
+      mesh = this.lineLayer(lines, 'county', countyStyle(this.map.getZoom()));
+      this.countyMeshes.set(key, mesh);
+    }
+    return mesh;
+  }
+
+  private buildLayer(level: Level, features: GeoFeature[], lines: GeoLinesFeature[]): LevelLayer {
     const byId = new Map<string, L.Polygon>();
-    const zoom = this.map.getZoom();
     const options = {
       pane: 'fill',
       renderer: this.renderers.fill,
       interactive: false, // hover and click are handled by the map itself (hitTest)
-      style: () => fillStyle(NO_DATA_COLOR, zoom),
+      smoothFactor: 0,
+      style: () => fillStyle(NO_DATA_COLOR),
       onEachFeature: (feature: GeoFeature, layer: L.Layer) => byId.set(feature.properties.id, layer as L.Polygon),
     } as L.GeoJSONOptions;
-    return { group: L.geoJSON(features as unknown as Feature[], options), byId, painted: null };
+    const fills = L.geoJSON(features as unknown as Feature[], options);
+    const mesh = lines.length ? this.lineLayer(lines, 'mesh', meshStyle(level, this.map.getZoom())) : null;
+    return { level, fills, mesh, byId, painted: null };
   }
 
-  private buildOverlay(features: GeoFeature[]): LevelLayer {
-    const options = {
-      pane: 'lines',
-      renderer: this.renderers.lines,
-      interactive: false,
-      style: () => overlayStyle(this.map.getZoom()),
-    } as L.GeoJSONOptions;
-    return { group: L.geoJSON(features as unknown as Feature[], options), byId: new Map(), painted: null };
+  private lineLayer(lines: GeoLinesFeature[], pane: 'mesh' | 'county', style: L.PathOptions): L.GeoJSON {
+    const options = { pane, renderer: this.renderers[pane], interactive: false, smoothFactor: 0, style: () => style } as L.GeoJSONOptions;
+    return L.geoJSON(lines as unknown as Feature[], options);
   }
 
-  /** Color every unit by its winner and set the border weight for the zoom (only what changed). */
-  private paint(layer: LevelLayer, colors: Map<string, string>, zoom: number): void {
-    const weight = borderWeight(zoom);
-    const before = layer.painted;
-    if (before?.colors === colors && before.weight === weight) return;
-    for (const [id, polygon] of layer.byId) {
-      polygon.setStyle(before?.colors === colors ? { weight } : { fillColor: colors.get(id) ?? NO_DATA_COLOR, weight });
-    }
-    layer.painted = { colors, weight };
+  /** Color every unit (only when the colors changed). */
+  private paint(layer: LevelLayer, colors: Map<string, string>): void {
+    if (layer.painted === colors) return;
+    for (const [id, polygon] of layer.byId) polygon.setStyle({ fillColor: colors.get(id) ?? NO_DATA_COLOR });
+    layer.painted = colors;
   }
 
-  private repaint(): void {
+  /** Line weights follow the zoom. */
+  private restyleLines(): void {
     const zoom = this.map.getZoom();
-    if (this.shown?.painted) this.paint(this.shown, this.shown.painted.colors, zoom);
-    this.overlay?.group.setStyle(overlayStyle(zoom));
+    if (this.shown) this.shown.mesh?.setStyle(meshStyle(this.shown.level, zoom));
+    this.county?.setStyle(countyStyle(zoom));
   }
 
   /** Build the other levels' layers for this date while the browser is idle, so switching is instant. */
@@ -301,7 +340,7 @@ export class ElectionMap {
     const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 200));
     idle(() => {
       for (const level of LEVELS) this.layerFor(level, date).catch(() => undefined);
-      this.layerFor('county', date, true).catch(() => undefined);
+      this.countyMeshFor(date).catch(() => undefined);
     });
   }
 
@@ -344,7 +383,7 @@ export class ElectionMap {
     // Traced from the latlngs the fill polygon already holds: nothing is parsed or built again.
     const rings = hit.polygon.getLatLngs() as Rings;
     if (this.outline) this.outline.setLatLngs(rings);
-    else this.outline = L.polygon(rings, { ...HOVER_STYLE, pane: 'hover', renderer: this.renderers.hover, interactive: false });
+    else this.outline = L.polygon(rings, { ...HOVER_STYLE, pane: 'hover', renderer: this.renderers.hover, interactive: false, smoothFactor: 0 });
     if (!this.map.hasLayer(this.outline)) this.outline.addTo(this.map);
     this.map.getContainer().classList.add('unit-hover');
     this.fillCard(hit.id);
@@ -386,7 +425,9 @@ export class ElectionMap {
     if (!polygon) return;
     const rings = polygon.getLatLngs() as Rings;
     this.selection = L.layerGroup(
-      SELECTION_STYLES.map((style) => L.polygon(rings, { ...style, pane: 'select', renderer: this.renderers.select, interactive: false })),
+      SELECTION_STYLES.map((style) =>
+        L.polygon(rings, { ...style, pane: 'select', renderer: this.renderers.select, interactive: false, smoothFactor: 0 }),
+      ),
     ).addTo(this.map);
   }
 }

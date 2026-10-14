@@ -258,6 +258,10 @@
           "type": "string",
           "description": "Path below data/, e.g. \"geo/settlement.json\" or \"geo/smd-2024.json\"."
         },
+        "lines": {
+          "type": "string",
+          "description": "Its border mesh, e.g. \"geo/settlement.lines.json\"."
+        },
         "valid_from": {
           "anyOf": [
             {
@@ -283,6 +287,7 @@
       "required": [
         "level",
         "file",
+        "lines",
         "valid_from",
         "valid_to"
       ],
@@ -695,6 +700,10 @@
         "list_id": {
           "type": "number"
         },
+        "option": {
+          "type": "string",
+          "description": "The list's option id on the map (see ResultOption)."
+        },
         "name": {
           "type": "string"
         },
@@ -719,6 +728,7 @@
       "required": [
         "round",
         "list_id",
+        "option",
         "name",
         "short_name",
         "color",
@@ -770,6 +780,10 @@
         "color": {
           "type": "string"
         },
+        "option": {
+          "type": "string",
+          "description": "The nominating parties' option id on the map (see ResultOption)."
+        },
         "votes": {
           "type": "number"
         }
@@ -779,6 +793,7 @@
         "name",
         "parties",
         "color",
+        "option",
         "votes"
       ],
       "additionalProperties": false
@@ -796,6 +811,10 @@
         "color": {
           "type": "string"
         },
+        "option": {
+          "type": "string",
+          "description": "Their option id on the map (see ResultOption)."
+        },
         "districts": {
           "type": "number"
         }
@@ -803,6 +822,7 @@
       "required": [
         "parties",
         "color",
+        "option",
         "districts"
       ],
       "additionalProperties": false
@@ -833,18 +853,60 @@
         "id": {
           "type": "string"
         },
-        "lists": {
+        "views": {
+          "type": "object",
+          "properties": {
+            "L": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ResultView"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "E": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ResultView"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "L",
+            "E"
+          ],
+          "additionalProperties": false,
+          "description": "L: party lists. E: single-member races by the candidates' nominating parties (null when the election has none)."
+        }
+      },
+      "required": [
+        "id",
+        "views"
+      ],
+      "additionalProperties": false
+    },
+    "ResultView": {
+      "type": "object",
+      "properties": {
+        "options": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/ElectionList"
-          }
+            "$ref": "#/definitions/ResultOption"
+          },
+          "description": "Every option with votes, most votes nationally first."
         },
         "winners": {
           "type": "object",
           "additionalProperties": {
-            "type": "number"
+            "type": "string"
           },
-          "description": "Unit id -> list_id of the winning party list (round 1), for every unit with results. Colors the map."
+          "description": "Unit id -> id of the option with the most votes. Colors the map."
         },
         "summaries": {
           "type": "object",
@@ -855,43 +917,51 @@
         }
       },
       "required": [
-        "id",
-        "lists",
+        "options",
         "winners",
         "summaries"
       ],
       "additionalProperties": false
     },
-    "ElectionList": {
+    "ResultOption": {
       "type": "object",
       "properties": {
-        "list_id": {
-          "type": "number"
+        "id": {
+          "type": "string"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "Empty for independents."
         },
         "short_name": {
           "type": "string"
         },
         "color": {
-          "type": "string"
+          "type": "string",
+          "description": "\"#rrggbb\""
         },
         "parties": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Short names of the member parties, as they were called at the election."
+        },
+        "votes": {
+          "type": "number",
+          "description": "Votes nationally: round 1 (L), each district's final round (E)."
         }
       },
       "required": [
-        "list_id",
+        "id",
         "name",
         "short_name",
         "color",
-        "parties"
+        "parties",
+        "votes"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "A party list (view L) or the parties that nominated candidates together (view E). The id is the parties' ids joined by \"-\" in both views (\"fidesz-kdnp\"), so a party keeps its id across years and views; \"independent\" for no party, \"list-<list_id>\" for a list whose party set is not unique. Joint candidates of a list's parties carry that list's name and color."
     },
     "UnitSummary": {
       "type": "object",
@@ -907,21 +977,39 @@
           "type": "array",
           "items": {
             "type": "array",
-            "items": {
-              "type": "number"
-            },
             "minItems": 2,
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
             "maxItems": 2
           },
-          "description": "The (up to) four party lists with the most votes, most first: [list_id, share of the valid list ballots (0..1)] — the same denominator as the official results and the side panel."
+          "description": "The (up to) four options with the most votes, most first: [option id, share (0..1)]. Shares are of all valid list ballots (L, as the official results count them) or of all candidate votes (E)."
         }
       },
       "required": [
         "turnout",
         "top"
       ],
-      "additionalProperties": false,
-      "description": "Round 1, list ballot."
+      "additionalProperties": false
+    },
+    "ResultViewId": {
+      "type": "string",
+      "enum": [
+        "L",
+        "E"
+      ]
+    },
+    "ShareFile": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "One option's share (0..1) in every unit where it got votes (E: where it had a candidate)."
     },
     "GeoFile": {
       "type": "object",
@@ -1063,6 +1151,125 @@
         }
       ],
       "description": "Longitude/latitude rings."
+    },
+    "GeoLinesFile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "FeatureCollection"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GeoLinesFeature"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "features"
+      ],
+      "additionalProperties": false,
+      "description": "data/geo/{name}.lines.json: every border of a geo file's features once, per period in which the same features are valid (drawn above the fills instead of stroking each polygon)."
+    },
+    "GeoLinesFeature": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Feature"
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "valid_from": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/IsoDate"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "valid_to": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/IsoDate"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "valid_from",
+            "valid_to"
+          ],
+          "additionalProperties": false
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "LineString"
+                },
+                "coordinates": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "coordinates"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "MultiLineString"
+                },
+                "coordinates": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "coordinates"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "properties",
+        "geometry"
+      ],
+      "additionalProperties": false
     }
   }
 }

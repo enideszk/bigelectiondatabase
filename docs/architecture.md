@@ -123,16 +123,20 @@ tests validate every file against the generated `types.schema.json`).
 | `data/meta.json` | elections (with rounds and district set), indicators, unit type names, boundary files, `is_fixture` |
 | `data/units/index.json` | every clickable unit: id, type, name, current ancestors (search, breadcrumbs) |
 | `data/units/{unit_id}.json` | one unit: parents with validity, former names, lineage, and per election: districts, turnout, list results, races per district and round (or districts won per party above county level), indicators |
-| `data/elections/{election_id}.json` | lists with colors and the winning list per unit (map colors) |
-| `data/geo/{level}.json`, `data/geo/smd-{set}.json` | GeoJSON boundaries per map level (electoral districts per district set); every geometry version is a feature with `valid_from`/`valid_to`; `meta.json` lists the files with the period each covers |
+| `data/elections/{election_id}.json` | per result view (L party lists, E single-member candidates by nominating parties): the options with colors, the winning option per unit (map colors) and a summary per unit (hover card) |
+| `data/shares/{election_id}/{L\|E}/{option_id}.json` | one option's share in every unit (vote-share map), fetched when picked |
+| `data/geo/{level}.json`, `data/geo/smd-{set}.json` | GeoJSON boundaries per map level (electoral districts per district set, rebuilt from the settlements); every geometry version is a feature with `valid_from`/`valid_to`; `meta.json` lists the files with the period each covers |
+| `data/geo/{name}.lines.json` | each file's border mesh: every border once, per period, drawn above the fills |
 
 ## Website
 
-- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=`).
+- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=&party=`).
 - `src/map/`: Leaflet map drawn on canvas (the owner's other dashboards use the same setup). Per
   level, the units valid on the election date become one layer, built once and reused; panes for
   fills, county lines, hover and selection outlines.
-- `src/sidebar/`: the side panel (header, participation, results with L/E toggle, ballots,
+- `src/map/coloring.ts`: winners or a party's vote-share steps, and the legend per level.
+- `src/sidebar/`: the side panel (header with the next larger area, participation with the ballot
+  papers, results with L/E toggle as rows like the Israel national table - top 6 and "Other" -
   indicators). Its look follows the Israel 2026 dashboard (`ilelection/dashboard`): dark theme,
   the same color tokens, rows with party-colored bars behind them.
 - `src/components/`: donut, result rows, indicator table, segmented toggle — plain SVG/DOM.

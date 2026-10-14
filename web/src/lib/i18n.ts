@@ -4,6 +4,7 @@
  * shape and pick one at startup.
  */
 
+import { formatShare } from './format';
 import type { ElectionType, LineageType } from './types';
 import type { Level } from '../state';
 
@@ -21,22 +22,19 @@ export const t = {
   formerly: 'Formerly',
   inPrefix: 'in',
   electoralDistricts: 'Electoral districts',
-  electionLabel: 'Election',
   electionHeading: (year: number, typeName: string) => `${year} ${typeName.toLowerCase()} results`,
   notExisting: (name: string) => `${name} did not exist at the time of this election.`,
   noDataForElection: 'No results for this unit in this election.',
   noElections: 'No election results are loaded yet.',
-  pill: { final: 'Final result', noData: 'No data', notExisting: 'Did not exist' },
 
   participation: 'Participation',
   turnout: 'Turnout',
   voted: 'Voted',
   didNotVote: 'Did not vote',
-  registered: 'Registered',
   noTurnout: 'No turnout data.',
-  ballots: 'Ballots',
-  valid: 'Valid',
-  invalid: 'Invalid',
+  ballotsCast: 'Ballot papers in the ballot box and received envelopes',
+  invalidBallots: 'Invalid stamped ballot papers',
+  validBallots: 'Valid ballot papers',
 
   results: 'Results',
   viewL: 'L',
@@ -48,7 +46,9 @@ export const t = {
   noCandidateResults: 'No single-member results for this unit.',
   noRaceThisRound: 'No race in this round here (decided in round 1).',
   independent: 'Independent',
-  independentChip: 'IND',
+  other: (n: number) => `Other (${n})`,
+  showFewer: 'Show fewer',
+  pickHint: 'Click a row to map its vote share; click again to go back.',
   districtsWon: 'Districts won',
   districtsWonNote: 'Winners of the final round in the single-member districts of this area.',
   districtWord: (n: number) => (n === 1 ? 'district' : 'districts'),
@@ -68,7 +68,13 @@ export const t = {
     nuts1: 'Large regions',
     smd: 'Electoral districts',
   } satisfies Record<Level, string>,
-  legend: 'Largest list',
+  legendLists: 'Largest list',
+  legendCandidates: 'Most single-member votes',
+  legendShare: (name: string) => `${name} vote share`,
+  shareRange: (lo: number, hi: number) => `${formatShare(lo)}–${formatShare(hi)}`,
+  mapShows: 'Map',
+  mapWinner: { L: 'Largest list in each area', E: 'Most single-member votes in each area' },
+  mapShare: (name: string) => `${name} vote share`,
   noData: 'No data',
   noResults: 'No results in this election',
   /** Map control, in this order. */

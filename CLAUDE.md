@@ -134,23 +134,41 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   behind them, `seg` toggles) follow the owner's Israel 2026 dashboard
   (`..\ilelection\dashboard\styles.css`, `il.css`, `renderDetail()` in `app.js`). Keep new UI
   consistent with it.
-- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=`.
+- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&party=`.
+- **Page layout** (as the Israel dashboard): a thin election bar across the top; above the map a
+  toolbar with the level / election type / year table (`map/controls.ts`) on the left and search +
+  party picker on the right; the side panel (30%) on the right.
 - **The map is Leaflet 1.9 on canvas** (owner's choice, as in the Israel dashboard; MapLibre +
-  PMTiles was dropped in Phase 2). Boundaries: GeoJSON files `data/geo/{level}.json` and
-  `geo/smd-{set}.json` from `etl/src/etl/export/geo.py`; every geometry *version* is a feature with
-  `valid_from`/`valid_to`, and `meta.geo` says which period each file covers.
+  PMTiles was dropped in Phase 2) over a darkened, half-transparent OpenStreetMap
+  (tile.openstreetmap.org; `.osm-base` filter, `OSM_OPACITY`). Boundaries: GeoJSON files
+  `data/geo/{level}.json` and `geo/smd-{set}.json` from `etl/src/etl/export/geo.py`; every geometry
+  *version* is a feature with `valid_from`/`valid_to`, and `meta.geo` says which period each file
+  covers.
+- **One set of borders for all levels**: the exporter cleans the settlement coverage and rebuilds
+  the electoral districts from it (the hand-drawn OEVK maps only cut split settlements), so
+  district, county and settlement borders coincide. Borders are drawn once from each file's mesh
+  (`{name}.lines.json`), never by stroking polygons, and paths are not simplified
+  (`smoothFactor: 0`): Leaflet simplifies each path separately, which opened gaps between
+  neighbors. County borders (black, thicker) go over the finer levels.
 - `ElectionMap` (`map/map.ts`) builds one Leaflet layer per level and set of geometry versions and
-  keeps it: a year switch only repaints colors (`setStyle`), a level switch adds the prebuilt layer
+  keeps it: a recoloring only repaints fills (`setStyle`), a level switch adds the prebuilt layer
   and removes the old one in the same canvas frame. Other levels are built while the browser is
-  idle. `setView(date, electionFilePromise)` changes nothing on screen until both the boundaries
-  and the colors are in, so the old view stays up instead of flashing. Hover and selection
-  outlines are separate polygons on their own panes/canvases (never restyle the fill for them).
+  idle. `setView(date, colorsPromise)` changes nothing on screen until both the boundaries and the
+  colors are in, so the old view stays up instead of flashing. Hover and selection outlines are
+  separate polygons on their own panes/canvases (never restyle the fill for them).
+- **What the map shows** (`map/coloring.ts`): the shown result view's winners (L lists, E
+  single-member candidates by nominating parties; the side panel's L/E toggle switches both), or,
+  with `?party=`, one option's vote share in steps (sixths of the areas + top 5%, cut per level,
+  colors mixed in Lab as in the Israel dashboard). Shares come from
+  `data/shares/{election}/{view}/{option}.json`, fetched when picked. Option ids are the parties'
+  ids joined by "-" in both views, so a party stays selected across years and views; clicking a
+  result row in the side panel picks it.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
   drop the moves in between, so the highlight trailed the cursor). Fill polygons are
   `interactive: false`, panes take no pointer events; the map reads the raw mouse position once
   per animation frame and hit-tests the shown layer itself (`hitTest`, Leaflet's `_containsPoint`
   on the drawn, simplified rings; Leaflet is pinned at 1.9.4 for that). Click uses the same test.
-  The hover card (`map/card.ts`, data from `ElectionFile.summaries`) is one element moved by a
+  The hover card (`map/card.ts`, data from the view's `summaries`) is one element moved by a
   transform; its content is rebuilt and measured only when the unit changes. Measured: a sweep
   over 166 settlements ran at the display rate with no long frames.
 - Leaflet's CSS loads after ours: map overrides in `styles.css` are prefixed with `#map`.

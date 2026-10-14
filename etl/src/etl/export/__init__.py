@@ -8,7 +8,9 @@ Output (default web/public/data/):
     meta.json                 elections, indicators, unit types
     units/index.json          every clickable unit, for search and breadcrumbs
     units/{unit_id}.json      everything about one unit
-    elections/{id}.json       winning list per unit (map colors) and the list palette
+    elections/{id}.json       per result view (L lists, E single-member): options, winner and
+                              hover-card summary per unit
+    shares/{id}/{view}/{option}.json   one option's share in every unit (vote-share map)
     geo/{level}.json          map boundaries (GeoJSON), see geo.py
 
 Writing thousands of small files is dominated by per-file latency when the repo is on a network
@@ -27,7 +29,7 @@ from typing import Any
 import psycopg
 
 from .context import ExportContext
-from .elections import build_election_file
+from .elections import build_election_files
 from .geo import build_geo_files
 from .meta import build_meta
 from .units import build_unit_file, build_unit_index
@@ -61,17 +63,22 @@ def export_all(conn: psycopg.Connection, out: Path) -> dict[str, int]:
         out / "units" / "index.json": to_json(build_unit_index(ctx)),
     }
     files.update({out / "units" / f"{u}.json": to_json(build_unit_file(ctx, u)) for u in ctx.clickable_unit_ids})
-    files.update({out / "elections" / f"{e}.json": to_json(build_election_file(ctx, e)) for e in ctx.elections})
+    for election_id in ctx.elections:
+        for path, content in build_election_files(ctx, election_id).items():
+            if not all(SAFE_ID.match(part) for part in path.removesuffix(".json").split("/")):
+                raise ValueError(f"{path!r} cannot be used as a file name")
+            files[out / path] = to_json(content)
     files.update({out / path: text for path, text in geo_files.items()})
 
-    subs = ("units", "elections", "geo")
-    for sub in subs:
-        (out / sub).mkdir(parents=True, exist_ok=True)
-    stale = [p for sub in subs for p in (out / sub).glob("*.json") if p not in files]
+    for directory in {path.parent for path in files}:
+        directory.mkdir(parents=True, exist_ok=True)
+    subs = ("units", "elections", "geo", "shares")
+    stale = [p for sub in subs for p in (out / sub).rglob("*.json") if p not in files]
     write_files(files, stale)
     return {
         "units": len(ctx.clickable_unit_ids),
         "elections": len(ctx.elections),
         "geo": len(geo_files),
+        "shares": sum(1 for p in files if "shares" in p.parts),
         "stale_removed": len(stale),
     }

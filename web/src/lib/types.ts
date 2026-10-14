@@ -41,6 +41,8 @@ export interface GeoFileMeta {
   level: MapLevel;
   /** Path below data/, e.g. "geo/settlement.json" or "geo/smd-2024.json". */
   file: string;
+  /** Its border mesh, e.g. "geo/settlement.lines.json". */
+  lines: string;
   /** Period the file's features cover (null = open-ended). */
   valid_from: IsoDate | null;
   valid_to: IsoDate | null;
@@ -177,6 +179,8 @@ export interface Turnout {
 export interface ListResult {
   round: number;
   list_id: number;
+  /** The list's option id on the map (see ResultOption). */
+  option: string;
   name: string;
   short_name: string;
   /** "#rrggbb" */
@@ -199,6 +203,8 @@ export interface CandidateResult {
   /** Short names of the nominating parties; empty = independent. */
   parties: string[];
   color: string;
+  /** The nominating parties' option id on the map (see ResultOption). */
+  option: string;
   votes: number;
 }
 
@@ -206,6 +212,8 @@ export interface DistrictWins {
   /** Short names of the winning candidates' parties; empty = independent. */
   parties: string[];
   color: string;
+  /** Their option id on the map (see ResultOption). */
+  option: string;
   districts: number;
 }
 
@@ -219,28 +227,55 @@ export interface IndicatorValue {
 
 export interface ElectionFile {
   id: string;
-  lists: ElectionList[];
-  /** Unit id -> list_id of the winning party list (round 1), for every unit with results. Colors the map. */
-  winners: { [unitId: string]: number };
+  /** L: party lists. E: single-member races by the candidates' nominating parties (null when the
+   *  election has none). */
+  views: { L: ResultView | null; E: ResultView | null };
+}
+
+export type ResultViewId = 'L' | 'E';
+
+export interface ResultView {
+  /** Every option with votes, most votes nationally first. */
+  options: ResultOption[];
+  /** Unit id -> id of the option with the most votes. Colors the map. */
+  winners: { [unitId: string]: string };
   /** Unit id -> what the map's hover card shows, for the same units as `winners`. */
   summaries: { [unitId: string]: UnitSummary };
 }
 
-/** Round 1, list ballot. */
+/**
+ * A party list (view L) or the parties that nominated candidates together (view E). The id is the
+ * parties' ids joined by "-" in both views ("fidesz-kdnp"), so a party keeps its id across years and
+ * views; "independent" for no party, "list-<list_id>" for a list whose party set is not unique.
+ * Joint candidates of a list's parties carry that list's name and color.
+ */
+export interface ResultOption {
+  id: string;
+  /** Empty for independents. */
+  name: string;
+  short_name: string;
+  /** "#rrggbb" */
+  color: string;
+  /** Short names of the member parties, as they were called at the election. */
+  parties: string[];
+  /** Votes nationally: round 1 (L), each district's final round (E). */
+  votes: number;
+}
+
 export interface UnitSummary {
   /** Voted / registered (0..1); null when unknown. */
   turnout: number | null;
-  /** The (up to) four party lists with the most votes, most first: [list_id, share of the valid list
-   *  ballots (0..1)] — the same denominator as the official results and the side panel. */
-  top: [number, number][];
+  /** The (up to) four options with the most votes, most first: [option id, share (0..1)]. Shares
+   *  are of all valid list ballots (L, as the official results count them) or of all candidate
+   *  votes (E). */
+  top: [string, number][];
 }
 
-export interface ElectionList {
-  list_id: number;
-  name: string;
-  short_name: string;
-  color: string;
-  parties: string[];
+// ---- data/shares/{election_id}/{L|E}/{option_id}.json ------------------------------------------
+
+/** One option's share (0..1) in every unit where it got votes (E: where it had a candidate). */
+export interface ShareFile {
+  [unitId: string]: number;
 }
 
 // ---- data/geo/{level}.json, data/geo/smd-{set}.json (GeoJSON) ------------------------------
@@ -269,3 +304,16 @@ export interface GeoProperties {
 export type GeoGeometry =
   | { type: 'Polygon'; coordinates: number[][][] }
   | { type: 'MultiPolygon'; coordinates: number[][][][] };
+
+/** data/geo/{name}.lines.json: every border of a geo file's features once, per period in which
+ *  the same features are valid (drawn above the fills instead of stroking each polygon). */
+export interface GeoLinesFile {
+  type: 'FeatureCollection';
+  features: GeoLinesFeature[];
+}
+
+export interface GeoLinesFeature {
+  type: 'Feature';
+  properties: { valid_from: IsoDate | null; valid_to: IsoDate | null };
+  geometry: { type: 'LineString'; coordinates: number[][] } | { type: 'MultiLineString'; coordinates: number[][][] };
+}

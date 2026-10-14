@@ -1,5 +1,6 @@
 /**
- * Map overlays: the map control (top left) and the legend with win counts (bottom left).
+ * Map controls: the level / election table and the party picker (in the toolbar above the map),
+ * and the legend (bottom left of the map).
  *
  * The map control is one table of three rows: map level (with unit counts) · election type · the
  * years of that type. Types with no election loaded yet are shown, disabled.
@@ -9,7 +10,8 @@ import { h } from '../components/dom';
 import { toggle } from '../components/toggle';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
-import type { ElectionFile, ElectionMeta, ElectionType } from '../lib/types';
+import type { ElectionMeta, ElectionType, ResultOption, ResultViewId } from '../lib/types';
+import { optionLabel, type Legend } from './coloring';
 import { LEVELS, type Level } from '../state';
 import { NO_DATA_COLOR } from './style';
 
@@ -57,21 +59,45 @@ export function renderMapControl(container: HTMLElement, o: MapControlOptions): 
   container.replaceChildren(...rows);
 }
 
-/** Lists that won at least one unit of the shown level, with how many they won. */
-export function renderLegend(container: HTMLElement, election: ElectionFile, levelOf: (unitId: string) => Level | null, level: Level): void {
-  const wins = new Map<number, number>();
-  for (const [unitId, listId] of Object.entries(election.winners)) {
-    if (levelOf(unitId) === level) wins.set(listId, (wins.get(listId) ?? 0) + 1);
-  }
-  const items = election.lists
-    .filter((l) => wins.has(l.list_id))
-    .sort((a, b) => wins.get(b.list_id)! - wins.get(a.list_id)!)
-    .map((l) =>
-      h('span', { class: 'legend-item' }, h('span', { class: 'swatch', style: `background:${l.color}` }), l.short_name, ' ', h('span', { class: 'legend-n' }, wins.get(l.list_id)!)),
-    );
+/** The legend of the shown level: winners with the areas they won, or the vote-share steps. */
+export function renderLegend(container: HTMLElement, legend: Legend | null): void {
+  container.hidden = !legend;
+  if (!legend) return;
+  const items =
+    legend.kind === 'winners'
+      ? legend.items.map((item) =>
+          h('span', { class: 'legend-item' }, h('span', { class: 'swatch', style: `background:${item.color}` }), item.label, ' ', h('span', { class: 'legend-n' }, item.count ?? '')),
+        )
+      : [
+          h(
+            'span',
+            { class: 'legend-steps' },
+            ...legend.items.map((item) => h('span', { class: 'legend-step' }, h('i', { style: `background:${item.color}` }), h('small', null, item.label))),
+          ),
+        ];
   container.replaceChildren(
-    h('span', { class: 'legend-title' }, t.legend),
+    h('span', { class: 'legend-title' }, legend.title),
     ...items,
     h('span', { class: 'legend-item' }, h('span', { class: 'swatch', style: `background:${NO_DATA_COLOR}` }), t.noData),
   );
+}
+
+/** "Map: [Largest list in each area | <party> vote share ...]" below the search box. */
+export function renderPartyPicker(
+  container: HTMLElement,
+  view: ResultViewId,
+  options: ResultOption[],
+  current: string | null,
+  onChange: (party: string | null) => void,
+): void {
+  const select = h(
+    'select',
+    {
+      'aria-label': t.mapShows,
+      onchange: (e: Event) => onChange((e.target as HTMLSelectElement).value || null),
+    },
+    h('option', { value: '', selected: current === null }, t.mapWinner[view]),
+    ...options.map((o) => h('option', { value: o.id, selected: o.id === current }, t.mapShare(optionLabel(o)))),
+  );
+  container.replaceChildren(h('label', { class: 'ctl' }, h('span', null, t.mapShows), select));
 }

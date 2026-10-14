@@ -49,9 +49,14 @@ def test_every_file_matches_the_typescript_types(exported):
     for path in (exported / "elections").glob("*.json"):
         assert _errors(election_validator, _load(path)) == [], path.name
         checked += 1
-    geo_validator = _validator("GeoFile")
+    geo_validator, lines_validator = _validator("GeoFile"), _validator("GeoLinesFile")
     for path in (exported / "geo").glob("*.json"):
-        assert _errors(geo_validator, _load(path)) == [], path.name
+        validator = lines_validator if path.name.endswith(".lines.json") else geo_validator
+        assert _errors(validator, _load(path)) == [], path.name
+        checked += 1
+    share_validator = _validator("ShareFile")
+    for path in (exported / "shares").rglob("*.json"):
+        assert _errors(share_validator, _load(path)) == [], path.name
         checked += 1
     assert checked > 20
 
@@ -102,16 +107,39 @@ def test_merged_settlement_only_has_elections_before_the_merge(exported):
 
 def test_hover_summaries_lead_with_the_winner(exported):
     election = _load(exported / "elections" / "parliament-2018.json")
-    assert set(election["summaries"]) == set(election["winners"])
-    for unit_id, summary in election["summaries"].items():
-        shares = [share for _, share in summary["top"]]
-        assert summary["top"][0][0] == election["winners"][unit_id], unit_id
-        assert shares == sorted(shares, reverse=True) and sum(shares) <= 1.0001, unit_id
-        assert summary["turnout"] is None or 0 < summary["turnout"] <= 1, unit_id
+    for view in ("L", "E"):
+        result = election["views"][view]
+        assert set(result["summaries"]) == set(result["winners"])
+        for unit_id, summary in result["summaries"].items():
+            shares = [share for _, share in summary["top"]]
+            assert summary["top"][0][0] == result["winners"][unit_id], unit_id
+            assert shares == sorted(shares, reverse=True) and sum(shares) <= 1.0001, unit_id
+            assert summary["turnout"] is None or 0 < summary["turnout"] <= 1, unit_id
+
+
+def test_share_files_match_the_summaries(exported):
+    """Every option has a share file, and a unit's leading shares there are the hover card's."""
+    election = _load(exported / "elections" / "parliament-2018.json")
+    for view in ("L", "E"):
+        result = election["views"][view]
+        shares = {o["id"]: _load(exported / "shares" / "parliament-2018" / view / f"{o['id']}.json") for o in result["options"]}
+        for unit_id, summary in result["summaries"].items():
+            for option_id, share in summary["top"]:
+                assert shares[option_id][unit_id] == share, (view, unit_id, option_id)
+
+
+def test_option_ids_are_stable_across_views(exported):
+    """A party combination has the same id as a list (L) and as joint candidates (E)."""
+    election = _load(exported / "elections" / "parliament-2018.json")
+    lists = {o["id"] for o in election["views"]["L"]["options"]}
+    candidates = {o["id"] for o in election["views"]["E"]["options"]}
+    assert lists & candidates
+    unit = _load(exported / "units" / "country-XX.json")["elections"]["parliament-2018"]
+    assert {l["option"] for l in unit["lists"]} <= lists
 
 
 def test_every_settlement_has_a_winner(exported):
-    winners = _load(exported / "elections" / "parliament-2018.json")["winners"]
+    winners = _load(exported / "elections" / "parliament-2018.json")["views"]["L"]["winners"]
     index = _load(exported / "units" / "index.json")["units"]
     settlements_2018 = [u["id"] for u in index if u["type"] == "settlement" and u["valid_to"] is None]
     assert settlements_2018 and all(s in winners for s in settlements_2018)

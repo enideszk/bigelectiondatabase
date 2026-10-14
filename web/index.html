@@ -13,15 +13,23 @@
   </head>
   <body>
     <div id="fixture-banner" class="fixture-banner" role="status" hidden></div>
+    <header id="election-bar" class="election-bar" aria-live="polite"></header>
     <div id="app">
       <main id="map-pane">
-        <div id="map"></div>
-        <div id="map-control" class="map-overlay map-control"></div>
-        <div id="legend" class="map-overlay legend"></div>
-        <div id="map-card" class="map-card" hidden></div>
+        <div class="toolbar">
+          <div id="map-control" class="map-control"></div>
+          <div class="toolbar-side">
+            <div id="search" class="search"></div>
+            <div id="party-picker" class="party-picker"></div>
+          </div>
+        </div>
+        <div class="map-stage">
+          <div id="map"></div>
+          <div id="legend" class="map-overlay legend" hidden></div>
+          <div id="map-card" class="map-card" hidden></div>
+        </div>
       </main>
       <aside id="sidebar">
-        <div id="search" class="search"></div>
         <div id="sidebar-content"></div>
       </aside>
     </div>

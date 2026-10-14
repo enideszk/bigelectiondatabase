@@ -46,6 +46,8 @@ class ExportContext:
     winners: dict[str, dict[str, int]] = field(default_factory=dict)                    # election -> unit -> list
     indicator_values: dict[str, list[dict]] = field(default_factory=dict)
     _descendants: dict[str, dict[str, set[str]]] = field(default_factory=dict, repr=False)
+    _groups: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = field(default_factory=dict, repr=False)
+    _list_options: dict[int, str] = field(default_factory=dict, repr=False)
 
     @property
     def clickable_unit_ids(self) -> list[str]:
@@ -65,16 +67,62 @@ class ExportContext:
                 return self.parties[pid]["color"]
         return INDEPENDENT_COLOR
 
+    def list_option_id(self, list_id: int) -> str:
+        """The map option id of a party list: its parties' ids joined by "-" (as the single-member
+        view's options, so a party stays selected across years and views); list-<id> when that is
+        not unique within the election."""
+        if list_id not in self._list_options:
+            election_id = self.lists[list_id]["election_id"]
+            ids = {
+                lid: "-".join(sorted(l["party_ids"]))
+                for lid, l in self.lists.items()
+                if l["election_id"] == election_id and l["list_kind"] == "party"
+            }
+            taken = [i for i in ids.values()]
+            for lid, slug in ids.items():
+                self._list_options[lid] = slug if slug and taken.count(slug) == 1 else f"list-{lid}"
+            self._list_options.setdefault(list_id, f"list-{list_id}")
+        return self._list_options[list_id]
+
     def list_display(self, list_id: int) -> dict[str, Any]:
         row = self.lists[list_id]
         day = self.elections[row["election_id"]]["election_date"]
         return {
             "list_id": list_id,
+            "option": self.list_option_id(list_id),
             "name": row["name"],
             "short_name": row["short_name"],
             "color": row["color"] or self.party_color(row["party_ids"]),
             "parties": [self.party_short_name(p, day) for p in row["party_ids"]],
         }
+
+    def group_display(self, party_ids: list[str], election_id: str) -> dict[str, Any]:
+        """The parties that nominated a candidate, as one map option ("E" view). Joint candidates
+        of the parties of a party list (Fidesz–KDNP, EM in 2022) take that list's name and color,
+        so the single-member map and the list map read alike. No party = independent."""
+        key = (election_id, tuple(party_ids))
+        if key in self._groups:
+            return self._groups[key]
+        if not party_ids:
+            group = {"id": "independent", "name": "", "short_name": "", "color": INDEPENDENT_COLOR, "parties": []}
+            self._groups[key] = group
+            return group
+        day = self.elections[election_id]["election_date"]
+        same = next(
+            (l for l in self.lists.values()
+             if l["election_id"] == election_id and l["list_kind"] == "party" and set(l["party_ids"]) == set(party_ids)),
+            None,
+        )
+        shorts = [self.party_short_name(p, day) for p in party_ids]
+        group = {
+            "id": "-".join(sorted(party_ids)),
+            "name": same["name"] if same else "–".join(shorts),
+            "short_name": same["short_name"] if same else "–".join(shorts),
+            "color": (same["color"] if same and same["color"] else None) or self.party_color(party_ids),
+            "parties": shorts,
+        }
+        self._groups[key] = group
+        return group
 
     def ancestors_on(self, unit_id: str, day: date) -> list[dict]:
         """Ancestor rows valid on `day`, nearest first."""

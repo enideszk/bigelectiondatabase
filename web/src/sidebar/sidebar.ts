@@ -1,7 +1,8 @@
 /**
  * The side panel, laid out like the Israel dashboard's detail panel:
- *   head (name, close) · kind + status · parents · districts · lineage notes
- *   election (heading) · participation · results (L / E) · ballots · indicators
+ *   head (name, next larger area, close) · kind · parents · districts · lineage notes
+ *   participation (with the ballot papers) · results (L / E) · indicators
+ * The election shown is named in the bar at the top of the page.
  */
 
 import { h } from '../components/dom';
@@ -11,25 +12,14 @@ import type { SidebarContext } from './context';
 import { renderIdentity, renderSideHead } from './header';
 import { renderIndicators } from './indicators';
 import { renderResults } from './results';
-import { renderBallots, renderTurnout } from './turnout';
-
-/** Which election the panel shows (it is chosen in the map control, top left). */
-function electionSection(ctx: SidebarContext): HTMLElement[] {
-  const election = ctx.election;
-  if (!election) return [h('h4', { class: 'd-h' }, t.electionLabel), h('p', { class: 'd-note' }, t.noElections)];
-  return [
-    h('h4', { class: 'd-h' }, t.electionLabel),
-    h('div', { class: 'd-election' }, h('div', { class: 'd-election-title' }, t.electionHeading(election.year, election.type_name))),
-  ];
-}
+import { renderTurnout } from './turnout';
 
 export function renderSidebar(container: HTMLElement, ctx: SidebarContext): void {
-  const body: HTMLElement[] = [...renderIdentity(ctx), ...electionSection(ctx)];
-  if (ctx.election) {
-    if (!validOn(ctx.unit, ctx.date)) body.push(h('p', { class: 'd-note' }, t.notExisting(displayName(ctx.unit))));
-    else if (!ctx.results) body.push(h('p', { class: 'd-note' }, t.noDataForElection));
-    else body.push(...renderTurnout(ctx), ...renderResults(ctx), ...renderBallots(ctx));
-  }
+  const body: HTMLElement[] = [...renderIdentity(ctx)];
+  if (!ctx.election) body.push(h('p', { class: 'd-note' }, t.noElections));
+  else if (!validOn(ctx.unit, ctx.date)) body.push(h('p', { class: 'd-note' }, t.notExisting(displayName(ctx.unit))));
+  else if (!ctx.results) body.push(h('p', { class: 'd-note' }, t.noDataForElection));
+  else body.push(...renderTurnout(ctx), ...renderResults(ctx));
   body.push(...renderIndicators(ctx));
   const scroll = container.querySelector('.side-body')?.scrollTop ?? 0;
   const bodyEl = h('div', { class: 'side-body' }, ...body);

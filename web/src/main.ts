@@ -1,12 +1,14 @@
-/** Entry point: load meta + unit index, then keep map and sidebar in sync with the state (URL). */
+/** Entry point: load meta + unit index, then keep map, controls and sidebar in sync with the state (URL). */
 
 import './styles.css';
+import { renderElectionBar } from './electionBar';
 import { loadElection, loadMeta, loadUnit, loadUnitIndex } from './lib/api';
 import { t } from './lib/i18n';
 import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
-import { renderLegend, renderMapControl } from './map/controls';
+import { buildColoring, type Coloring } from './map/coloring';
+import { renderLegend, renderMapControl, renderPartyPicker } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -59,10 +61,14 @@ async function main(): Promise<void> {
     }, PREFETCH_DELAY_MS);
   };
 
+  /** The selected election's file (once loaded), the promise of it, and what the map shows from it. */
   let electionFile: ElectionFile | null = null;
+  let electionRequest: Promise<ElectionFile | null> = Promise.resolve(null);
+  let coloring: Coloring | null = null;
+
   const describe = (unitId: string) => {
     const unit = units.get(unitId);
-    return unit ? cardContent(unit, units, meta, electionFile) : [];
+    return unit ? cardContent(unit, units, meta, electionFile, getState().view) : [];
   };
   const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: select, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
@@ -87,17 +93,38 @@ async function main(): Promise<void> {
 
   const drawControls = () => {
     const state = getState();
+    const election = currentElection(state);
+    renderElectionBar(byId('election-bar'), election, state.view);
     renderMapControl(byId('map-control'), {
       level: state.level,
       counts: levelCounts(viewDate(state)),
       elections: meta.elections,
-      current: currentElection(state),
+      current: election,
       onLevel: (level) => setState({ level }),
-      onElection: (election) => setState({ year: election.year, type: election.type }),
+      onElection: (e) => setState({ year: e.year, type: e.type }),
     });
-    const legend = byId('legend');
-    legend.hidden = !electionFile;
-    if (electionFile) renderLegend(legend, electionFile, levelOf, state.level);
+    const picker = byId('party-picker');
+    const options = electionFile?.views[state.view]?.options;
+    picker.hidden = !options;
+    if (options) renderPartyPicker(picker, state.view, options, state.party, (party) => setState({ party }));
+    renderLegend(byId('legend'), coloring?.legend?.[state.level] ?? null);
+  };
+
+  /** Recolor the map for the state's election, view and party. The map keeps its colors until
+   *  the new ones (and, for a vote share, that party's file) are in. */
+  let coloringToken = 0;
+  const recolor = (state: AppState) => {
+    const token = ++coloringToken;
+    const next = electionRequest.then((file) => buildColoring(file, state.view, state.party, levelOf));
+    void map.setView(viewDate(state), next.then((c) => c.colors));
+    next
+      .then((c) => {
+        if (token !== coloringToken) return; // a newer coloring was asked for meanwhile
+        coloring = c;
+        drawControls();
+        map.refreshCard();
+      })
+      .catch((error) => console.error(error));
   };
 
   let latestRender = 0;
@@ -108,20 +135,31 @@ async function main(): Promise<void> {
 
     if (electionChanged) {
       // Without an election (none loaded yet): today's boundaries, no colors.
-      const file = election ? loadElection(election.id) : Promise.resolve(null);
-      // The map keeps the previous view until both the boundaries and this file are in.
-      void map.setView(viewDate(state), file);
-      file
-        .then((loaded) => {
-          if (currentElection()?.id !== election?.id) return; // the user moved on meanwhile
-          electionFile = loaded;
+      electionRequest = election ? loadElection(election.id) : Promise.resolve(null);
+      const request = electionRequest;
+      request
+        .then((file) => {
+          if (request !== electionRequest) return; // the user moved on meanwhile
+          electionFile = file;
           drawControls();
-          map.refreshCard();
         })
         .catch((error) => console.error(error));
     }
+    if (electionChanged || previous?.view !== state.view || previous?.party !== state.party) {
+      recolor(state);
+      // A party that the shown election / view does not have: back to the winners.
+      if (state.party) {
+        const party = state.party;
+        electionRequest
+          .then((file) => {
+            const options = file?.views[state.view]?.options;
+            if (getState().party === party && !options?.some((o) => o.id === party)) setState({ party: null });
+          })
+          .catch(() => undefined);
+      }
+    }
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
-    if (electionChanged || previous?.level !== state.level) drawControls();
+    drawControls();
 
     if (!state.unit || !units.has(state.unit)) {
       setLoading(false);
