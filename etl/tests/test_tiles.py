@@ -7,14 +7,12 @@ import gzip
 from pmtiles.reader import MmapSource, Reader
 from pmtiles.tile import TileType
 
-from etl import db
 from etl.tiles import LAYERS, build_pmtiles
 
 
 def test_pmtiles_has_all_layers_and_tiles(test_db_url, seeded, tmp_path):
     out = tmp_path / "units.pmtiles"
-    with db.connect(test_db_url) as conn:
-        stats = build_pmtiles(conn, out, max_zoom=6)
+    stats = build_pmtiles(test_db_url, out, max_zoom=6, workers=3)
     assert stats["tiles"] > 0
 
     with out.open("rb") as f:

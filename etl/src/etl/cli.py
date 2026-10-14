@@ -156,8 +156,7 @@ def tiles(
     """Cut vector tiles from unit_geometry with PostGIS and pack them into a PMTiles file."""
     from .tiles import build_pmtiles
 
-    with db.connect() as conn:
-        stats = build_pmtiles(conn, out, max_zoom=max_zoom)
+    stats = build_pmtiles(config.database_url(), out, max_zoom=max_zoom)
     typer.echo(f"Wrote {stats['tiles']} tiles ({stats['bytes'] / 1024:.0f} KiB) to {_show(out)}")
 
 

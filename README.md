@@ -60,7 +60,7 @@ Run from the repo root unless noted.
 | `.\etl check` | data-quality checks; run after every load |
 | `.\etl export` | database → `web/public/data/` (JSON) |
 | `.\etl tiles` | database → `web/public/tiles/units.pmtiles` |
-| `.\etl build` | export + tiles |
+| `.\etl build` | export + tiles (then refresh the browser; the dev server does not watch generated data) |
 | `.\etl test` | Python tests (uses the separate `hu_data_test` database, which it wipes) |
 | `npm run dev` (in `web/`) | website with live reload |
 | `npm test` (in `web/`) | website tests |

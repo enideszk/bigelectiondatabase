@@ -148,3 +148,5 @@ tests validate every file against the generated `types.schema.json`).
 | Extensions in their own schema | `etl db reset` can drop `public` without touching PostGIS |
 | JSON Schema generated from `types.ts` | one source of truth for the file shapes, checked from both Python and TypeScript |
 | `etl.cmd` wrapper, venv in `%LOCALAPPDATA%` | the repo is on a network share; see CLAUDE.md |
+| Parallel file writes in the exporter, parallel tile queries | per-file latency on the share (~11 ms) and one-query-per-tile over the LAN dominated build time; parallelism cut `etl build` from ~90 s to ~15 s |
+| Dev server ignores `public/data/` and `public/tiles/` | polling thousands of generated files starved it (seconds per request) |

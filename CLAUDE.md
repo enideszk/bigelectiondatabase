@@ -49,6 +49,13 @@ Definition of done for any change: `.\etl test` and `npm test` pass, `npm run ty
 - **Vite watches by polling** (web/vite.config.ts). Native file watching over the share exhausts
   Server-PC's SMB resources: every other program's fsync then fails with "Insufficient system
   resources" (file saves break). Don't turn polling off when working via Z:.
+- **Never let Vite watch `public/data/` or `public/tiles/`** (`server.watch.ignored`). Polling the
+  thousands of generated files starved the dev server: 3–22 s per request instead of ~15 ms.
+  After `.\etl build`, refresh the page by hand.
+- **Small files on the share cost ~11 ms each** (create) and ~4 ms (delete) vs < 1 ms locally.
+  The exporter therefore builds everything in memory and writes with 32 threads, overwriting in
+  place and deleting only stale files (export: 62 s -> 7 s). Tiles are cut with 8 parallel
+  database connections (28 s -> 8 s). Keep both when changing the exporter or the tiler.
 - In PowerShell, `npm run dev -- --port N` loses the flags; use `npx vite --port N` instead.
 - **Database**: PostgreSQL 18.6 + PostGIS 3.6.2 on Server-PC, Windows service `postgresql-x64-18`,
   data in `L:\PostgreSQL\18\data`, port 5432, reachable from 192.168.0.0/24 only. Databases

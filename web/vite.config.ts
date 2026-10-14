@@ -8,10 +8,13 @@ export default defineConfig(({ mode }) => {
   // to use native watching when the repo is on a local disk.
   const env = loadEnv(mode, '..', 'VITE_');
   const polling = (process.env.VITE_USE_POLLING ?? env.VITE_USE_POLLING ?? '1') !== '0';
+  // Never watch the generated data (thousands of files written by `etl build`): polling them over
+  // the share starves the dev server (seconds per request). After `etl build`, refresh the page.
+  const ignored = ['**/public/data/**', '**/public/tiles/**'];
   return {
     // Relative asset paths: the built site works from any folder or sub-path.
     base: './',
-    server: { watch: polling ? { usePolling: true, interval: 500 } : {} },
+    server: { watch: polling ? { usePolling: true, interval: 500, ignored } : { ignored } },
     build: { target: 'es2022' },
     test: { include: ['tests/**/*.test.ts'] },
   };

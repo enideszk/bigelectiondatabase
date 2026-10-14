@@ -16,6 +16,7 @@ import math
 import os
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import psycopg
@@ -36,8 +37,12 @@ EXTENT = 4096
 BUFFER = 64
 WORLD_M = 2 * 20037508.342789244   # width of the Web Mercator world in meters
 
+WORKERS = 8   # parallel tile queries (Server-PC has 8 cores)
+
+# A regular (unlogged) table rather than a TEMP one, so that every worker connection can read it.
+# The name carries the process id; it is dropped at the end of the build.
 FEATURES_SQL = """
-CREATE TEMP TABLE tile_feature ON COMMIT DROP AS
+CREATE UNLOGGED TABLE {table} AS
 SELECT CASE {layer_case} END AS layer,
        u.unit_id AS id,
        u.name,
@@ -49,25 +54,26 @@ FROM unit_geometry g
 JOIN unit u USING (unit_id)
 LEFT JOIN electoral_district ed ON ed.unit_id = u.unit_id
 WHERE u.unit_type IN ({types});
-CREATE INDEX ON tile_feature USING gist (geom);
-ANALYZE tile_feature;
+CREATE INDEX ON {table} USING gist (geom);
+ANALYZE {table};
 """
 
 
-def _layer_sql(layer: str) -> str:
+def _layer_sql(layer: str, table: str) -> str:
     return f"""COALESCE((
         SELECT ST_AsMVT(q, '{layer}', {EXTENT}, 'geom')
         FROM (SELECT id, name, vf, vt, set, ST_AsMVTGeom(ST_Simplify(f.geom, %(tol)s, true), b.env, {EXTENT}, {BUFFER}, true) AS geom
-              FROM tile_feature f, b
+              FROM {table} f, b
               WHERE f.layer = '{layer}' AND f.geom && b.env_buffered) q
         WHERE q.geom IS NOT NULL), ''::bytea)"""
 
 
-TILE_SQL = (
-    "WITH b AS (SELECT ST_TileEnvelope(%(z)s, %(x)s, %(y)s) AS env, "
-    "ST_TileEnvelope(%(z)s, %(x)s, %(y)s, margin => %(margin)s) AS env_buffered) SELECT "
-    + " || ".join(_layer_sql(layer) for layer in LAYERS)
-)
+def _tile_sql(table: str) -> str:
+    return (
+        "WITH b AS (SELECT ST_TileEnvelope(%(z)s, %(x)s, %(y)s) AS env, "
+        "ST_TileEnvelope(%(z)s, %(x)s, %(y)s, margin => %(margin)s) AS env_buffered) SELECT "
+        + " || ".join(_layer_sql(layer, table) for layer in LAYERS)
+    )
 
 
 def _tile_xy(lon: float, lat: float, z: int) -> tuple[int, int]:
@@ -77,28 +83,46 @@ def _tile_xy(lon: float, lat: float, z: int) -> tuple[int, int]:
     return min(max(x, 0), n - 1), min(max(y, 0), n - 1)
 
 
-def build_pmtiles(conn: psycopg.Connection, out: Path, max_zoom: int = 10, min_zoom: int = 0) -> dict[str, int]:
+def build_pmtiles(url: str, out: Path, max_zoom: int = 10, min_zoom: int = 0, workers: int = WORKERS) -> dict[str, int]:
+    """Cut every tile from z min_zoom to max_zoom with `workers` parallel database connections
+    (each tile is one independent query) and write one PMTiles file."""
     types = [t for ts in LAYERS.values() for t in ts]
     layer_case = " ".join(f"WHEN u.unit_type IN ({', '.join(repr(t) for t in ts)}) THEN '{layer}'" for layer, ts in LAYERS.items())
-    tiles: list[tuple[int, bytes]] = []
-    with conn.transaction():
-        conn.execute(FEATURES_SQL.format(layer_case=layer_case, types=", ".join(repr(t) for t in types)))
-        extent = conn.execute(
-            "SELECT ST_XMin(e), ST_YMin(e), ST_XMax(e), ST_YMax(e) FROM (SELECT ST_Extent(ST_Transform(geom, 4326)) AS e FROM tile_feature) s"
-        ).fetchone()
-        if extent is None or extent[0] is None:
-            raise RuntimeError("unit_geometry is empty: nothing to tile. Load geometries first.")
-        min_lon, min_lat, max_lon, max_lat = extent
-        for z in range(min_zoom, max_zoom + 1):
-            x0, y0 = _tile_xy(min_lon, max_lat, z)
-            x1, y1 = _tile_xy(max_lon, min_lat, z)
-            tile_m = WORLD_M / 2**z
-            params = {"z": z, "tol": tile_m / EXTENT, "margin": BUFFER / EXTENT}
-            for x in range(x0, x1 + 1):
-                for y in range(y0, y1 + 1):
-                    data = conn.execute(TILE_SQL, params | {"x": x, "y": y}).fetchone()[0]
-                    if data:
-                        tiles.append((zxy_to_tileid(z, x, y), gzip.compress(bytes(data), mtime=0)))
+    table = f"tile_feature_build_{os.getpid()}"
+
+    with psycopg.connect(url, autocommit=True) as conn:
+        conn.execute(f"DROP TABLE IF EXISTS {table}")
+        conn.execute(FEATURES_SQL.format(table=table, layer_case=layer_case, types=", ".join(repr(t) for t in types)))
+        try:
+            extent = conn.execute(
+                f"SELECT ST_XMin(e), ST_YMin(e), ST_XMax(e), ST_YMax(e) FROM (SELECT ST_Extent(ST_Transform(geom, 4326)) AS e FROM {table}) s"
+            ).fetchone()
+            if extent is None or extent[0] is None:
+                raise RuntimeError("unit_geometry is empty: nothing to tile. Load geometries first.")
+            min_lon, min_lat, max_lon, max_lat = extent
+            jobs = []
+            for z in range(min_zoom, max_zoom + 1):
+                x0, y0 = _tile_xy(min_lon, max_lat, z)
+                x1, y1 = _tile_xy(max_lon, min_lat, z)
+                params = {"z": z, "tol": WORLD_M / 2**z / EXTENT, "margin": BUFFER / EXTENT}
+                jobs += [params | {"x": x, "y": y} for x in range(x0, x1 + 1) for y in range(y0, y1 + 1)]
+
+            sql = _tile_sql(table)
+
+            def cut(share: list[dict]) -> list[tuple[int, bytes]]:
+                # Each worker gets every n-th job, so the heavy low-zoom tiles are spread out.
+                done = []
+                with psycopg.connect(url, autocommit=True) as worker:
+                    for p in share:
+                        data = worker.execute(sql, p).fetchone()[0]
+                        if data:
+                            done.append((zxy_to_tileid(p["z"], p["x"], p["y"]), gzip.compress(bytes(data), mtime=0)))
+                return done
+
+            with ThreadPoolExecutor(workers) as pool:
+                tiles = [t for part in pool.map(cut, [jobs[i::workers] for i in range(workers)]) for t in part]
+        finally:
+            conn.execute(f"DROP TABLE IF EXISTS {table}")
     if not tiles:
         raise RuntimeError("No tiles were produced.")
 
