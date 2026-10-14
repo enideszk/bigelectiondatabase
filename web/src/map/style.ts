@@ -2,15 +2,15 @@
  * Map colors and line styles (Leaflet path options).
  *
  * Fills carry no stroke: every border is drawn once, from the level's border mesh, above the fills
- * (a border stroked by both neighbors looked uneven). The fills let a darkened OpenStreetMap show
- * through a little.
+ * (a border stroked by both neighbors looked uneven). The winners map lets a darkened
+ * OpenStreetMap show through a little; the step maps are opaque (coloring.ts).
  */
 
 import type { PathOptions } from 'leaflet';
 import type { Level } from '../state';
 
 export const NO_DATA_COLOR = '#262d38';
-const FILL_OPACITY = 0.8;
+export const FILL_OPACITY = 0.8;
 const BORDER = '#0b0e13';
 
 /** The OpenStreetMap background: darkened (styles.css .osm-base) and half transparent. */
@@ -19,8 +19,8 @@ export const OSM_OPACITY = 0.5;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function fillStyle(color: string): PathOptions {
-  return { stroke: false, fill: true, fillColor: color, fillOpacity: FILL_OPACITY };
+export function fillStyle(color: string, opacity = FILL_OPACITY): PathOptions {
+  return { stroke: false, fill: true, fillColor: color, fillOpacity: opacity };
 }
 
 /** The shown level's own borders: hairlines across the country, clearer lines up close; the
@@ -36,16 +36,12 @@ export function countyStyle(zoom: number): PathOptions {
   return { fill: false, color: '#000000', opacity: 0.95, weight: clamp(1.5 + 0.25 * (zoom - 7), 1.5, 2.6), lineJoin: 'round' };
 }
 
-export const HOVER_STYLE: PathOptions = {
-  fill: true,
-  fillColor: '#ffffff',
-  fillOpacity: 0.14,
-  stroke: true,
-  color: '#ffffff',
-  opacity: 0.75,
-  weight: 1.1,
-  lineJoin: 'round',
-};
+/** The unit under the pointer: a light wash and a white line on a dark casing (it must show on
+ *  the near-white steps of a step map as well as on dark fills). */
+export const HOVER_STYLES: PathOptions[] = [
+  { fill: true, fillColor: '#ffffff', fillOpacity: 0.14, stroke: true, color: '#05070a', opacity: 0.55, weight: 2.6, lineJoin: 'round' },
+  { fill: false, color: '#ffffff', opacity: 0.9, weight: 1.1, lineJoin: 'round' },
+];
 
 /** The selected unit: a white line on a dark casing, readable on light and dark fills alike. */
 export const SELECTION_STYLES: PathOptions[] = [

@@ -278,6 +278,13 @@ export interface ShareFile {
   [unitId: string]: number;
 }
 
+// ---- data/indicators/{indicator_id}.json ------------------------------------------------------
+
+/** One indicator in every unit that has it: [year, value] pairs, oldest first. */
+export interface IndicatorFile {
+  [unitId: string]: [number, number][];
+}
+
 // ---- data/geo/{level}.json, data/geo/smd-{set}.json (GeoJSON) ------------------------------
 
 /** Every geometry version of one map level's units; show those valid on the date shown. */

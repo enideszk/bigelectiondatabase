@@ -1,7 +1,7 @@
 /**
  * Application state, mirrored in the URL so links are shareable:
- *   ?unit=settlement-99001&year=2018&view=L&party=fidesz-kdnp
- *   (type=parliament, round=1, level=settlement are defaults; party = the option shown as a share map)
+ *   ?unit=settlement-99001&year=2018&view=L&map=party:fidesz-kdnp
+ *   (type=parliament, round=1, level=settlement are defaults; map = what the map is colored by)
  * Selecting another unit adds a browser history entry; other changes replace the current one.
  */
 
@@ -18,8 +18,9 @@ export interface AppState {
   view: View;
   round: number;
   level: Level;
-  /** Map option shown as a vote-share map (ResultOption.id); null = each area's winner. */
-  party: string | null;
+  /** What the map is colored by besides each area's winner (null): "party:<ResultOption.id>"
+   *  (vote share), "turnout" or "indicator:<indicator id>". See map/coloring.ts. */
+  map: string | null;
 }
 
 type Listener = (state: AppState, previous: AppState) => void;
@@ -77,7 +78,7 @@ function fromUrl(): AppState {
     view: p.get('view') === 'E' ? 'E' : 'L',
     round: Number(p.get('round')) || 1,
     level: LEVELS.includes(p.get('level') as Level) ? (p.get('level') as Level) : 'settlement',
-    party: p.get('party') || null,
+    map: p.get('map') || null,
   });
 }
 
@@ -98,6 +99,6 @@ function toUrl(s: AppState): string {
   p.set('view', s.view);
   if (s.view === 'E' && s.round !== 1) p.set('round', String(s.round));
   if (s.level !== 'settlement') p.set('level', s.level);
-  if (s.party) p.set('party', s.party);
+  if (s.map) p.set('map', s.map);
   return `?${p.toString()}`;
 }

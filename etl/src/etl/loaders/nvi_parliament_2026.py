@@ -9,19 +9,23 @@ Raw: data/raw/valasztasi_eredmenyek_1990-2024/2026_parlamenti/
                                         per candidate); the list files have no district column,
                                         so each station's district comes from here
      levelben_szavazas_eredmenyei_2026.xls  mail votes
-Withdrawn candidates appear as "KIESETT" and are skipped. These files do not name the candidates'
-nominating organisations: candidates are loaded with organisation "?" (unknown) until a source
-that names them is added to data/raw.
+     jeloltek_YYYYMMDD.csv              NVI candidate register (name, district, status, nominating
+                                        organisation); the newest one is used
+Withdrawn candidates appear as "KIESETT" in the result files and are skipped. The result files do
+not name the candidates' nominating organisations: they come from the candidate register, matched
+by county, district number and name (every candidate on the ballot must match). Without a register
+the candidates are loaded with organisation "?" (unknown).
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
 import psycopg
 
-from ..hu_names import hu_title
+from ..hu_names import hu_title, name_key
 from ._nvi_parliament import ARCHIVE, MAIL, UNKNOWN_ORGANISATION, Places, _int, load_election, nvi_source, write_interim
 
 ELECTION_ID = "parliament-2026"
@@ -29,9 +33,11 @@ SOURCE_DIR = "nvi_parliament_2026"
 RAW = ARCHIVE / "2026_parlamenti"
 SOURCE = nvi_source(
     2026,
-    "listas/*.xls, egyeni/*.xls, levelben_szavazas_eredmenyei_2026.xls",
-    "Candidates' nominating organisations are not in these files (loaded as unknown).",
+    "listas/*.xls, egyeni/*.xls, levelben_szavazas_eredmenyei_2026.xls, jeloltek_*.csv",
+    "Candidates' nominating organisations from the NVI candidate register (jeloltek_*.csv).",
 )
+REGISTERED = "Nyilvántartásba véve"
+DISTRICT = re.compile(r"(.+?), (\d+)\. számú egyéni választókerület$")
 
 
 def _param(params: pd.DataFrame, label: str) -> str:
@@ -61,9 +67,30 @@ def _columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _organisations(base: Path, places: Places) -> dict[tuple[str, int, str], str] | None:
+    """(county code, district number, name key) -> nominating organisation of every single-member
+    candidate in the newest candidate register; None without one. A name nominated again after a
+    rejection keeps its registered nomination."""
+    registers = sorted(base.glob("jeloltek_*.csv"))
+    if not registers:
+        return None
+    df = pd.read_csv(registers[-1], dtype=str, encoding="utf-8-sig", keep_default_na=False)
+    out: dict[tuple[str, int, str], str] = {}
+    for _, r in df[(df["OEVK"] != "") & (df["Lista típusa"] == "")].iterrows():
+        district = DISTRICT.match(r["OEVK"].strip())
+        if not district:
+            places.unmatched.add(f"candidate register district {r['OEVK']!r}")
+            continue
+        key = (places.county(district.group(1)), int(district.group(2)), name_key(r["Jelölt neve"]))
+        if key not in out or r["Státusz"] == REGISTERED:
+            out[key] = r["Jelölő szervezet neve"].strip()
+    return out
+
+
 def clean(raw_dir: Path, interim_dir: Path) -> list[Path]:
     base = raw_dir / RAW
     places = Places(interim_dir)
+    organisations = _organisations(base, places)
     station_oevk: dict[str, int] = {}
     turnout, candidates, candidate_votes = [], [], []
 
@@ -76,8 +103,14 @@ def clean(raw_dir: Path, interim_dir: Path) -> list[Path]:
             oevk, position, name = int(r[1]), int(r[2]), str(r[3]).strip()
             if name.upper() == "KIESETT":
                 continue
-            names[(oevk, position)] = hu_title(name)
-            candidates.append([county, oevk, position, hu_title(name), UNKNOWN_ORGANISATION])
+            name = hu_title(name)
+            organisation = UNKNOWN_ORGANISATION
+            if organisations is not None:
+                organisation = organisations.get((county, oevk, name_key(name)), "")
+                if not organisation:
+                    places.unmatched.add(f"candidate {name!r} ({county}/{oevk:02d}) is not in the candidate register")
+            names[(oevk, position)] = (name, organisation)
+            candidates.append([county, oevk, position, name, organisation])
         for sheet in pd.ExcelFile(path).sheet_names[1:]:
             oevk = int(sheet.split(".")[0])
             df = _columns(pd.read_excel(path, sheet_name=sheet, header=1, dtype=str))
@@ -87,7 +120,8 @@ def clean(raw_dir: Path, interim_dir: Path) -> list[Path]:
                 turnout.append([station, "candidate", _int(r["EE"]), _int(r["JE"]), _int(r["NE"]), _int(r["ME"])])
                 for col in df.columns:
                     if col.isdigit() and (oevk, int(col)) in names:
-                        candidate_votes.append([station, county, oevk, names[(oevk, int(col))], UNKNOWN_ORGANISATION, _int(r[col])])
+                        name, organisation = names[(oevk, int(col))]
+                        candidate_votes.append([station, county, oevk, name, organisation, _int(r[col])])
 
     stations, list_votes, list_names = [], [], {}
     for path in sorted((base / "listas").glob("*.xls")):

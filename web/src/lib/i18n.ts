@@ -4,7 +4,6 @@
  * shape and pick one at startup.
  */
 
-import { formatShare } from './format';
 import type { ElectionType, LineageType } from './types';
 import type { Level } from '../state';
 
@@ -69,10 +68,13 @@ export const t = {
   legendLists: 'Largest list',
   legendCandidates: 'Most single-member votes',
   legendShare: (name: string) => `${name} vote share`,
-  shareRange: (lo: number, hi: number) => `${formatShare(lo)}–${formatShare(hi)}`,
   mapShows: 'Map',
   mapWinner: { L: 'Largest list in each area', E: 'Most single-member votes in each area' },
   mapShare: (name: string) => `${name} vote share`,
+  mapTurnout: 'Turnout',
+  mapGroupShares: 'Vote share',
+  mapGroupIndicators: 'Socio-demographic indicators',
+  indicatorYear: (year: number) => `(${year})`,
   noData: 'No data',
   noResults: 'No results in this election',
   /** Map control, in this order. */

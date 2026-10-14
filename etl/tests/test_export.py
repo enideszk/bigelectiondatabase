@@ -58,6 +58,12 @@ def test_every_file_matches_the_typescript_types(exported):
     for path in (exported / "shares").rglob("*.json"):
         assert _errors(share_validator, _load(path)) == [], path.name
         checked += 1
+    indicator_validator = _validator("IndicatorFile")
+    indicator_files = list((exported / "indicators").glob("*.json"))
+    assert indicator_files
+    for path in indicator_files:
+        assert _errors(indicator_validator, _load(path)) == [], path.name
+        checked += 1
     assert checked > 20
 
 

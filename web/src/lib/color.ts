@@ -1,15 +1,15 @@
 /**
- * Colors for the vote-share map, after the Israel dashboard's: steps mixed in CIELAB (so they look
- * evenly spaced) from almost black up to a more saturated version of the party's color.
+ * Colors for the step maps (vote share, turnout, indicators): steps mixed in CIELAB (so they look
+ * evenly spaced) from near-white for the lowest values up to the color darkened and saturated a
+ * little for the highest.
  */
 
 type Rgb = [number, number, number];
 type Lab = [number, number, number];
 
-const SHARE_LOW = '#111111';
-/** The weakest step is a dark tint of the party color rather than black, so it still differs
- *  from "no data". */
-const SHARE_MIN_T = 0.14;
+const RAMP_LOW = '#f6f6f3';
+/** The lowest step is already a faint tint of the color, not plain white. */
+const RAMP_MIN_T = 0.06;
 
 function hexToRgb(hex: string): Rgb {
   const n = parseInt(hex.slice(1), 16);
@@ -52,14 +52,14 @@ export function mix(a: string, b: string, t: number): string {
   return rgbToHex(labToRgb(A.map((v, i) => v + (B[i] - v) * t) as Lab));
 }
 
-/** The color with its chroma raised, so the top step stands out on the dark map. */
-export function saturated(hex: string): string {
+/** The top of a ramp: the color a little darker and a little more saturated. */
+export function deepened(hex: string): string {
   const [l, a, b] = rgbToLab(hexToRgb(hex));
-  return rgbToHex(labToRgb([l, a * 1.25, b * 1.25]));
+  return rgbToHex(labToRgb([l * 0.82, a * 1.2, b * 1.2]));
 }
 
 /**
- * Steps of a vote-share map. Shares are skewed (most areas close together, a few strongholds far
+ * Steps of a step map. Values are skewed (most areas close together, a few strongholds far
  * above), so the steps hold equal numbers of areas, a sixth each, with the top sixth split at the
  * top 5% so the strongholds still stand out. Breaks that coincide merge.
  */
@@ -79,7 +79,7 @@ export function shareStep(breaks: number[], value: number): number {
   return i;
 }
 
-export function shareStepColor(color: string, breaks: number[], step: number): string {
+export function stepColor(color: string, breaks: number[], step: number): string {
   const t = breaks.length ? step / breaks.length : 1;
-  return mix(SHARE_LOW, saturated(color), SHARE_MIN_T + (1 - SHARE_MIN_T) * t);
+  return mix(RAMP_LOW, deepened(color), RAMP_MIN_T + (1 - RAMP_MIN_T) * t);
 }

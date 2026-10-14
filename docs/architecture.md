@@ -124,13 +124,14 @@ tests validate every file against the generated `types.schema.json`).
 | `data/units/index.json` | every clickable unit: id, type, name, current ancestors (search, breadcrumbs) |
 | `data/units/{unit_id}.json` | one unit: parents with validity, former names, lineage, and per election: districts, turnout, list results, races per district and round (or districts won per party above county level), indicators |
 | `data/elections/{election_id}.json` | per result view (L party lists, E single-member candidates by nominating parties): the options with colors, the winning option per unit (map colors) and a summary per unit (hover card) |
+| `data/indicators/{indicator_id}.json` | one indicator's [year, value] pairs in every unit (indicator map), fetched when picked |
 | `data/shares/{election_id}/{L\|E}/{option_id}.json` | one option's share in every unit (vote-share map), fetched when picked |
 | `data/geo/{level}.json`, `data/geo/smd-{set}.json` | GeoJSON boundaries per map level (electoral districts per district set, rebuilt from the settlements); every geometry version is a feature with `valid_from`/`valid_to`; `meta.json` lists the files with the period each covers |
 | `data/geo/{name}.lines.json` | each file's border mesh: every border once, per period, drawn above the fills |
 
 ## Website
 
-- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=&party=`).
+- `src/state.ts`: state ⇄ URL (`?unit=&year=&type=&view=L|E&round=&level=&map=`).
 - `src/map/`: Leaflet map drawn on canvas (the owner's other dashboards use the same setup). Per
   level, the units valid on the election date become one layer, built once and reused; panes for
   fills, county lines, hover and selection outlines.

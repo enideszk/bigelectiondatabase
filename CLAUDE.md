@@ -34,9 +34,10 @@ Parliamentary results (`loaders/_nvi_parliament.py`, shared by the four year mod
 - Nationality lists are stored (`list_kind = 'nationality'`) but hidden in the UI and the winner
   view; list shares use all valid list ballots as the denominator, as the official results do.
 - Namesake candidates exist (2014, 2018 decoys): candidates are keyed by ballot position.
-- 2026: the per-county xls files do not name candidates' nominating organisations, so they are
-  stored with party `unknown` ("?") until a source for them is added to `data/raw`. Only files in
-  the project folder may be used (owner's rule).
+- 2026: the per-county result xls files do not name candidates' nominating organisations; they
+  come from the NVI candidate register `2026_parlamenti/jeloltek_YYYYMMDD.csv` (newest file),
+  matched by county, district number and name. Every candidate on the ballot must match, or the
+  clean step fails. Only files in the project folder may be used (owner's rule).
 - Balatonakarattya split from Balatonkenese in 2014 after the election: its 2014 votes are inside
   Balatonkenese (no lineage modelled yet).
 
@@ -134,7 +135,7 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   behind them, `seg` toggles) follow the owner's Israel 2026 dashboard
   (`..\ilelection\dashboard\styles.css`, `il.css`, `renderDetail()` in `app.js`). Keep new UI
   consistent with it.
-- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&party=`.
+- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&map=`.
 - **Page layout** (as the Israel dashboard): a thin election bar across the top; above the map a
   toolbar with the level / election type / year table (`map/controls.ts`) on the left and search,
   the Party lists / Single-member switch and the party picker on the right; the side panel (30%) on the right.
@@ -156,14 +157,17 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   idle. `setView(date, colorsPromise)` changes nothing on screen until both the boundaries and the
   colors are in, so the old view stays up instead of flashing. Hover and selection outlines are
   separate polygons on their own panes/canvases (never restyle the fill for them).
-- **What the map shows** (`map/coloring.ts`): the shown result view's winners (L lists, E
-  single-member candidates by nominating parties; the toolbar's Party lists / Single-member switch
-  sets it for the map and the side panel), or,
-  with `?party=`, one option's vote share in steps (sixths of the areas + top 5%, cut per level,
-  colors mixed in Lab as in the Israel dashboard). Shares come from
-  `data/shares/{election}/{view}/{option}.json`, fetched when picked. Option ids are the parties'
-  ids joined by "-" in both views, so a party stays selected across years and views; clicking a
-  result row in the side panel picks it.
+- **What the map shows** (`map/coloring.ts`, `?map=`, picked in the toolbar's Map select): the
+  shown result view's winners (default; L lists, E single-member candidates by nominating
+  parties; the toolbar's Party lists / Single-member switch sets the view for the map and the side
+  panel), or a step map: `party:<option>` vote share, `turnout`, or `indicator:<id>` (the year
+  closest to the election). Step maps: steps holding equal numbers of areas (sixths + top 5%, cut
+  per level), colors mixed in Lab from near-white (lowest) to the color darkened and saturated a
+  little (highest), opaque fills; the winners map keeps translucent fills over the OSM background.
+  Shares come from `data/shares/{election}/{view}/{option}.json`, indicators from
+  `data/indicators/{id}.json`, fetched when picked. Option ids are the parties' ids joined by "-"
+  in both views, so a party stays selected across years and views; clicking a result row in the
+  side panel picks it.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
   drop the moves in between, so the highlight trailed the cursor). Fill polygons are
   `interactive: false`, panes take no pointer events; the map reads the raw mouse position once

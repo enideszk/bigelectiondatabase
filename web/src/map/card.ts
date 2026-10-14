@@ -22,6 +22,8 @@ export function cardContent(
   meta: Meta,
   election: ElectionFile | null,
   view: ResultViewId,
+  /** What a step map shows for this unit, e.g. "Population: 202,331 persons (2026)". */
+  mapped?: string,
 ): Node[] {
   const kind = meta.unit_types.find((u) => u.type === unit.type)?.name ?? unit.type;
   const county = WITH_COUNTY.includes(unit.type) ? unit.parents.map((id) => units.get(id)).find((p) => p?.type === 'county') : undefined;
@@ -29,6 +31,7 @@ export function cardContent(
     h('div', { class: 'mc-name' }, displayName(unit)),
     h('div', { class: 'mc-sub' }, county ? `${kind} · ${displayName(county)}` : kind),
   ];
+  if (mapped) nodes.push(h('div', { class: 'mc-mapped' }, mapped));
   const result = election?.views[view];
   if (!result) return nodes;
 

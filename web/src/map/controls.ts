@@ -1,5 +1,6 @@
 /**
- * Map controls: the level / election table and the party picker (in the toolbar above the map),
+ * Map controls: the level / election table, the result view switch and the map picker (in the
+ * toolbar above the map),
  * and the legend (bottom left of the map).
  *
  * The map control is one table of three rows: map level (with unit counts) · election type · the
@@ -10,8 +11,8 @@ import { h } from '../components/dom';
 import { toggle } from '../components/toggle';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
-import type { ElectionMeta, ElectionType, ResultOption, ResultViewId } from '../lib/types';
-import { optionLabel, type Legend } from './coloring';
+import type { ElectionMeta, ElectionType, IndicatorMeta, ResultOption, ResultViewId } from '../lib/types';
+import { indicatorMap, optionLabel, partyMap, type Legend } from './coloring';
 import { LEVELS, type Level } from '../state';
 import { NO_DATA_COLOR } from './style';
 
@@ -95,22 +96,27 @@ export function renderViewSwitch(container: HTMLElement, view: ResultViewId, ava
   );
 }
 
-/** "Map: [Largest list in each area | <party> vote share ...]" below the search box. */
-export function renderPartyPicker(
+/** "Map: [Largest list in each area | Turnout | <party> vote share ... | <indicator> ...]" below
+ *  the search box (values as state.map, see coloring.ts). */
+export function renderMapPicker(
   container: HTMLElement,
   view: ResultViewId,
   options: ResultOption[],
+  indicators: IndicatorMeta[],
   current: string | null,
-  onChange: (party: string | null) => void,
+  onChange: (map: string | null) => void,
 ): void {
+  const option = (value: string, label: string) => h('option', { value, selected: value === (current ?? '') }, label);
   const select = h(
     'select',
     {
       'aria-label': t.mapShows,
       onchange: (e: Event) => onChange((e.target as HTMLSelectElement).value || null),
     },
-    h('option', { value: '', selected: current === null }, t.mapWinner[view]),
-    ...options.map((o) => h('option', { value: o.id, selected: o.id === current }, t.mapShare(optionLabel(o)))),
+    option('', t.mapWinner[view]),
+    ...(options.length ? [option('turnout', t.mapTurnout)] : []),
+    ...(options.length ? [h('optgroup', { label: t.mapGroupShares }, ...options.map((o) => option(partyMap(o.id), t.mapShare(optionLabel(o)))))] : []),
+    ...(indicators.length ? [h('optgroup', { label: t.mapGroupIndicators }, ...indicators.map((i) => option(indicatorMap(i.id), i.name)))] : []),
   );
   container.replaceChildren(h('label', { class: 'ctl' }, h('span', null, t.mapShows), select));
 }

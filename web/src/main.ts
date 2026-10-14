@@ -8,7 +8,7 @@ import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
 import { buildColoring, type Coloring } from './map/coloring';
-import { renderLegend, renderMapControl, renderPartyPicker, renderViewSwitch } from './map/controls';
+import { renderLegend, renderMapControl, renderMapPicker, renderViewSwitch } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
 
   const describe = (unitId: string) => {
     const unit = units.get(unitId);
-    return unit ? cardContent(unit, units, meta, electionFile, getState().view) : [];
+    return unit ? cardContent(unit, units, meta, electionFile, getState().view, coloring?.values.get(unitId)) : [];
   };
   const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: select, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
@@ -105,23 +105,25 @@ async function main(): Promise<void> {
     });
     const views = electionFile?.views;
     renderViewSwitch(byId('view-switch'), state.view, { L: !views || !!views.L, E: !views || !!views.E }, (view) => setState({ view }));
-    const picker = byId('party-picker');
-    const options = electionFile?.views[state.view]?.options;
-    picker.hidden = !options;
-    if (options) renderPartyPicker(picker, state.view, options, state.party, (party) => setState({ party }));
+    renderMapPicker(byId('party-picker'), state.view, electionFile?.views[state.view]?.options ?? [], meta.indicators, state.map, (value) =>
+      setState({ map: value }),
+    );
     renderLegend(byId('legend'), coloring?.legend?.[state.level] ?? null);
   };
 
-  /** Recolor the map for the state's election, view and party. The map keeps its colors until
-   *  the new ones (and, for a vote share, that party's file) are in. */
+  /** Recolor the map for the state's election, view and map choice. The map keeps its colors
+   *  until the new ones (and the share or indicator file they need) are in. */
   let coloringToken = 0;
   const recolor = (state: AppState) => {
     const token = ++coloringToken;
-    const next = electionRequest.then((file) => buildColoring(file, state.view, state.party, levelOf));
-    void map.setView(viewDate(state), next.then((c) => c.colors));
+    const context = { election: currentElection(state), indicators: meta.indicators };
+    const next = electionRequest.then((file) => buildColoring(file, context, state.view, state.map, levelOf));
+    void map.setView(viewDate(state), next);
     next
       .then((c) => {
         if (token !== coloringToken) return; // a newer coloring was asked for meanwhile
+        // Something this election / view does not have (e.g. a party that did not run): back to the winners.
+        if (!c.valid && getState().map === state.map) return setState({ map: null });
         coloring = c;
         drawControls();
         map.refreshCard();
@@ -147,19 +149,7 @@ async function main(): Promise<void> {
         })
         .catch((error) => console.error(error));
     }
-    if (electionChanged || previous?.view !== state.view || previous?.party !== state.party) {
-      recolor(state);
-      // A party that the shown election / view does not have: back to the winners.
-      if (state.party) {
-        const party = state.party;
-        electionRequest
-          .then((file) => {
-            const options = file?.views[state.view]?.options;
-            if (getState().party === party && !options?.some((o) => o.id === party)) setState({ party: null });
-          })
-          .catch(() => undefined);
-      }
-    }
+    if (electionChanged || previous?.view !== state.view || previous?.map !== state.map) recolor(state);
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
     drawControls();
 

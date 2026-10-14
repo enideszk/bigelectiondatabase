@@ -29,6 +29,13 @@ export function formatShare(share: number, decimals = 1): string {
   return `${formatNumber(share * 100, decimals)}%`;
 }
 
+const compactFormat = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
+
+/** 1712210 -> "1.7M", 4160 -> "4.2K" (legend scales). */
+export function formatCompact(n: number): string {
+  return compactFormat.format(n);
+}
+
 /** An indicator value with its unit: "45.2%", "412,300 HUF", "1,250 persons". */
 export function formatValue(value: number, unitOfMeasure: string, decimals: number): string {
   const n = formatNumber(value, decimals);

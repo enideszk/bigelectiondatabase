@@ -1,6 +1,6 @@
 /**
  * The Leaflet map: unit boundaries from the GeoJSON files in data/geo/, drawn on canvas over a
- * darkened OpenStreetMap, colored as the caller says (winners or a vote share, see coloring.ts),
+ * darkened OpenStreetMap, colored as the caller says (winners or a step map, see coloring.ts),
  * with a hover card, click and a selection outline.
  *
  * Each level's units valid on a date become one layer (fills + the level's border mesh), built once
@@ -28,7 +28,7 @@ import { loadGeo, loadGeoLines } from '../lib/api';
 import type { GeoFeature, GeoFileMeta, GeoLinesFeature, IsoDate } from '../lib/types';
 import { validOn } from '../lib/units';
 import { LEVELS, type Level } from '../state';
-import { HOVER_STYLE, NO_DATA_COLOR, OSM_OPACITY, OSM_URL, SELECTION_STYLES, countyStyle, fillStyle, meshStyle } from './style';
+import { HOVER_STYLES, NO_DATA_COLOR, OSM_OPACITY, OSM_URL, SELECTION_STYLES, countyStyle, fillStyle, meshStyle } from './style';
 
 /** Levels drawn with the county borders on top, for orientation. */
 const WITH_COUNTY_OVERLAY: Level[] = ['settlement', 'jaras', 'smd'];
@@ -44,6 +44,14 @@ const INITIAL_BOUNDS = L.latLngBounds([45.74, 16.11], [48.59, 22.9]);
 /** Hover card placement: centered above the cursor, below it when there is no room above. */
 const CARD_GAP = 14;
 const CARD_MARGIN = 4;
+
+/** Unit id -> fill color (others gray), and the fills' opacity. */
+export interface MapColors {
+  colors: Map<string, string>;
+  fillOpacity: number;
+}
+
+const NO_COLORS: MapColors = { colors: new Map(), fillOpacity: 1 };
 
 export interface FeatureRef {
   level: Level;
@@ -66,7 +74,7 @@ interface LevelLayer {
   mesh: L.GeoJSON | null;
   byId: Map<string, L.Polygon>;
   /** The colors it was last painted with; repainted only when they change. */
-  painted: Map<string, string> | null;
+  painted: MapColors | null;
 }
 
 interface Hit {
@@ -98,7 +106,7 @@ export class ElectionMap {
   private readonly prefetched = new Set<IsoDate>();
   private level: Level = 'settlement';
   private date: IsoDate | null = null;
-  private colors: Promise<Map<string, string>> = Promise.resolve(new Map());
+  private colors: Promise<MapColors> = Promise.resolve(NO_COLORS);
   private shown: LevelLayer | null = null;
   private county: L.GeoJSON | null = null;
   private selected: FeatureRef | null = null;
@@ -107,7 +115,7 @@ export class ElectionMap {
 
   // hover
   private hovered: Hit | null = null;
-  private outline: L.Polygon | null = null;
+  private outline: L.Polygon[] = [];
   /** Last mouse position (client coordinates); null while the pointer is off the map. */
   private pointer: { x: number; y: number } | null = null;
   /** The map's box on the page, measured once and again after a resize or scroll. */
@@ -193,13 +201,13 @@ export class ElectionMap {
     });
   }
 
-  /** Show the boundaries valid on `date` in these colors (unit id -> color; others gray). The
-   *  colors may still be loading: the map changes once both they and the boundaries are in. */
-  setView(date: IsoDate, colors: Promise<Map<string, string>>): Promise<void> {
+  /** Show the boundaries valid on `date` in these colors. They may still be loading: the map
+   *  changes once both they and the boundaries are in. */
+  setView(date: IsoDate, colors: Promise<MapColors>): Promise<void> {
     this.date = date;
     this.colors = colors.catch((error) => {
       console.error(error);
-      return new Map<string, string>();
+      return NO_COLORS;
     });
     return this.render();
   }
@@ -320,9 +328,11 @@ export class ElectionMap {
   }
 
   /** Color every unit (only when the colors changed). */
-  private paint(layer: LevelLayer, colors: Map<string, string>): void {
+  private paint(layer: LevelLayer, colors: MapColors): void {
     if (layer.painted === colors) return;
-    for (const [id, polygon] of layer.byId) polygon.setStyle({ fillColor: colors.get(id) ?? NO_DATA_COLOR });
+    for (const [id, polygon] of layer.byId) {
+      polygon.setStyle({ fillColor: colors.colors.get(id) ?? NO_DATA_COLOR, fillOpacity: colors.fillOpacity });
+    }
     layer.painted = colors;
   }
 
@@ -382,9 +392,13 @@ export class ElectionMap {
     this.hovered = hit;
     // Traced from the latlngs the fill polygon already holds: nothing is parsed or built again.
     const rings = hit.polygon.getLatLngs() as Rings;
-    if (this.outline) this.outline.setLatLngs(rings);
-    else this.outline = L.polygon(rings, { ...HOVER_STYLE, pane: 'hover', renderer: this.renderers.hover, interactive: false, smoothFactor: 0 });
-    if (!this.map.hasLayer(this.outline)) this.outline.addTo(this.map);
+    if (this.outline.length) for (const line of this.outline) line.setLatLngs(rings);
+    else {
+      this.outline = HOVER_STYLES.map((style) =>
+        L.polygon(rings, { ...style, pane: 'hover', renderer: this.renderers.hover, interactive: false, smoothFactor: 0 }),
+      );
+    }
+    for (const line of this.outline) if (!this.map.hasLayer(line)) line.addTo(this.map);
     this.map.getContainer().classList.add('unit-hover');
     this.fillCard(hit.id);
     this.callbacks.onHover?.(hit.id);
@@ -393,7 +407,7 @@ export class ElectionMap {
   private unhover(): void {
     if (!this.hovered) return;
     this.hovered = null;
-    this.outline?.remove();
+    for (const line of this.outline) line.remove();
     this.card.hidden = true;
     this.map.getContainer().classList.remove('unit-hover');
   }

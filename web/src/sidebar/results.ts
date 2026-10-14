@@ -9,16 +9,19 @@ import { resultRows, type ResultItem, type ResultRowsOptions } from '../componen
 import { toggle } from '../components/toggle';
 import { t } from '../lib/i18n';
 import type { Race } from '../lib/types';
+import { parseMapBy, partyMap } from '../map/coloring';
 import type { SidebarContext } from './context';
 import { unitLink } from './header';
 
 const partyLabel = (parties: string[]) => (parties.length ? parties.join('–') : t.independent);
 
 function rowOptions(ctx: SidebarContext, key: string): ResultRowsOptions {
+  const by = parseMapBy(ctx.state.map);
+  const picked = by.kind === 'party' ? by.option : null;
   return {
     key,
-    picked: ctx.state.party,
-    onPick: (option) => ctx.update({ party: option === ctx.state.party ? null : option }),
+    picked,
+    onPick: (option) => ctx.update({ map: option === picked ? null : partyMap(option) }),
   };
 }
 

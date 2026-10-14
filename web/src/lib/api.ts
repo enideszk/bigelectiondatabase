@@ -1,6 +1,6 @@
 /** Loading the static JSON files written by `etl export`. Every file is fetched at most once. */
 
-import type { ElectionFile, GeoFile, GeoLinesFile, Meta, ResultViewId, ShareFile, UnitFile, UnitIndex } from './types';
+import type { ElectionFile, GeoFile, GeoLinesFile, IndicatorFile, Meta, ResultViewId, ShareFile, UnitFile, UnitIndex } from './types';
 
 const BASE = import.meta.env.BASE_URL;
 const cache = new Map<string, Promise<unknown>>();
@@ -29,3 +29,5 @@ export const loadGeoLines = (file: string) => getJson<GeoLinesFile>(`data/${file
 /** One option's share in every unit (the vote-share map). */
 export const loadShares = (electionId: string, view: ResultViewId, optionId: string) =>
   getJson<ShareFile>(`data/shares/${encodeURIComponent(electionId)}/${view}/${encodeURIComponent(optionId)}.json`);
+/** One indicator's values in every unit (the indicator map). */
+export const loadIndicator = (indicatorId: string) => getJson<IndicatorFile>(`data/indicators/${encodeURIComponent(indicatorId)}.json`);

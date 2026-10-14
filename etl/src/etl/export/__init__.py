@@ -11,6 +11,7 @@ Output (default web/public/data/):
     elections/{id}.json       per result view (L lists, E single-member): options, winner and
                               hover-card summary per unit
     shares/{id}/{view}/{option}.json   one option's share in every unit (vote-share map)
+    indicators/{id}.json      one indicator's values ([year, value] pairs) in every unit (map)
     geo/{level}.json          map boundaries (GeoJSON), see geo.py
 
 Writing thousands of small files is dominated by per-file latency when the repo is on a network
@@ -69,10 +70,11 @@ def export_all(conn: psycopg.Connection, out: Path) -> dict[str, int]:
                 raise ValueError(f"{path!r} cannot be used as a file name")
             files[out / path] = to_json(content)
     files.update({out / path: text for path, text in geo_files.items()})
+    files.update({out / "indicators" / f"{i}.json": to_json(values) for i, values in _indicator_maps(ctx).items()})
 
     for directory in {path.parent for path in files}:
         directory.mkdir(parents=True, exist_ok=True)
-    subs = ("units", "elections", "geo", "shares")
+    subs = ("units", "elections", "geo", "shares", "indicators")
     stale = [p for sub in subs for p in (out / sub).rglob("*.json") if p not in files]
     write_files(files, stale)
     return {
@@ -82,3 +84,18 @@ def export_all(conn: psycopg.Connection, out: Path) -> dict[str, int]:
         "shares": sum(1 for p in files if "shares" in p.parts),
         "stale_removed": len(stale),
     }
+
+
+def _indicator_maps(ctx: ExportContext) -> dict[str, dict[str, list]]:
+    """indicator id -> {unit id: [[year, value], ...]} for the clickable units (the map picks the
+    year closest to the election shown)."""
+    out: dict[str, dict[str, list]] = {}
+    clickable = set(ctx.clickable_unit_ids)
+    for unit_id, rows in ctx.indicator_values.items():
+        if unit_id not in clickable:
+            continue
+        for r in rows:
+            if not SAFE_ID.match(r["indicator_id"]):
+                raise ValueError(f"indicator id {r['indicator_id']!r} cannot be used as a file name")
+            out.setdefault(r["indicator_id"], {}).setdefault(unit_id, []).append([r["year"], float(r["value"])])
+    return out

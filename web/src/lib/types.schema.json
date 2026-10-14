@@ -1011,6 +1011,21 @@
       },
       "description": "One option's share (0..1) in every unit where it got votes (E: where it had a candidate)."
     },
+    "IndicatorFile": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "description": "One indicator in every unit that has it: [year, value] pairs, oldest first."
+    },
     "GeoFile": {
       "type": "object",
       "properties": {
