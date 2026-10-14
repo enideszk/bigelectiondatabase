@@ -56,5 +56,31 @@ should return a point in Budapest (≈ 19.05, 47.50).
   rebuilt from the raw files with the loaders, which is the point of the design).
 - Minor upgrades (18.x): stop the service, replace the program files with the new binaries zip
   (and the matching PostGIS bundle), start the service.
-- Hosting the website: `npm run build` produces static files in `web/dist/`; serve them with
-  Caddy (`C:\caddy\Caddyfile`) using `file_server`. Not set up yet.
+
+
+## Website hosting (https://hungary.enideszk.duckdns.org)
+
+Set up 2026-10-15 on Server-PC:
+
+- **Server**: `web/scripts/serve.mjs` (Node, no dependencies; `npm run serve`) on
+  `127.0.0.1:1235`, loopback only. It serves `web/dist` and `/data/` straight from
+  `web/public/data`, so a new `.\etl export` is live at once; hashed assets are cached for good,
+  everything else is revalidated (ETag).
+- **Supervisor**: `tools/run-server.ps1` starts it and restarts it if it exits (growing delay up
+  to 60 s); logs in `logs/` (`bootstrap.log`, `server.log`, `server.err.log`).
+- **Scheduled task `HungaryElectionsSite`**: runs the supervisor at boot (30 s delay) as Oliver
+  (S4U: no stored password, no logon needed), restarts every minute on failure, no time limit -
+  the same pattern as the RemoteKeyboardServer and videolink tasks.
+- **Caddy** (`C:\caddy\Caddyfile`, backup `Caddyfile.bak-20261015-003535`): site
+  `hungary.enideszk.duckdns.org:443` with the DuckDNS DNS challenge like the other sites,
+  `encode zstd gzip` and `reverse_proxy 127.0.0.1:1235`. After editing:
+  `C:\caddy\Caddy.exe validate --config C:\caddy\Caddyfile` then `... reload --config ...`
+  (run them through `cmd /c "... 2>&1"` from PowerShell 5.1, which otherwise treats Caddy's log
+  output as an error).
+
+Deploying:
+- New data: `.\etl export` (from any machine): live immediately, reload the page.
+- New code: `npm run build` in `web/` **on Server-PC** (about 20 s there, local disk; the server
+  needs no restart). `node scripts\serve.mjs --check` verifies the build and the data.
+- Restart the server: `Stop-ScheduledTask HungaryElectionsSite`, end the `node.exe` running
+  `serve.mjs`, `Start-ScheduledTask HungaryElectionsSite`.

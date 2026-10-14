@@ -27,3 +27,6 @@ node_modules/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Server logs (tools/run-server.ps1)
+logs/

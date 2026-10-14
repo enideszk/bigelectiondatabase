@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "schema": "node scripts/generate-schema.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "serve": "node scripts/serve.mjs"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",

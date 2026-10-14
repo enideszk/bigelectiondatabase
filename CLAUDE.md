@@ -52,7 +52,7 @@ From the repo root (PowerShell):
 .\etl check                    # data-quality checks, exit 1 on errors
 .\etl export | build          # build = export (JSON + GeoJSON into web/public/data)
 .\etl test [pytest args]       # Python tests against TEST_DATABASE_URL (wiped!)
-cd web; npm run dev | npm test | npm run build | npm run typecheck | npm run schema
+cd web; npm run dev | npm test | npm run build | npm run typecheck | npm run schema | npm run serve
 ```
 
 Definition of done for any change: `.\etl test` and `npm test` pass, `npm run typecheck` is clean.
@@ -84,6 +84,10 @@ Definition of done for any change: `.\etl test` and `npm test` pass, `npm run ty
 - **Server-PC SSH**: `ssh -p 2222 oliver@192.168.0.253`; the login shell is Windows PowerShell 5.1,
   send scripts with `powershell -EncodedCommand`. psql there: `C:\Program Files\PostgreSQL\18\bin`.
 - No Docker anywhere (owner's decision).
+- **Hosting**: https://hungary.enideszk.duckdns.org = Caddy on Server-PC -> `web/scripts/serve.mjs`
+  on 127.0.0.1:1235 (scheduled task `HungaryElectionsSite`, supervisor `tools/run-server.ps1`,
+  logs in `logs/`). `/data/` is served from `web/public/data`, so an export is live at once; code
+  changes need `npm run build` on Server-PC. Details: docs/server-setup.md.
 
 ## Conventions
 
