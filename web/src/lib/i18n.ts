@@ -70,6 +70,7 @@ export const t = {
   } satisfies Record<Level, string>,
   legend: 'Largest list',
   noData: 'No data',
+  noResults: 'No results in this election',
 
   aria: {
     mapLevel: 'Map level',

@@ -222,6 +222,17 @@ export interface ElectionFile {
   lists: ElectionList[];
   /** Unit id -> list_id of the winning party list (round 1), for every unit with results. Colors the map. */
   winners: { [unitId: string]: number };
+  /** Unit id -> what the map's hover card shows, for the same units as `winners`. */
+  summaries: { [unitId: string]: UnitSummary };
+}
+
+/** Round 1, list ballot. */
+export interface UnitSummary {
+  /** Voted / registered (0..1); null when unknown. */
+  turnout: number | null;
+  /** The (up to) four party lists with the most votes, most first: [list_id, share of the valid list
+   *  ballots (0..1)] — the same denominator as the official results and the side panel. */
+  top: [number, number][];
 }
 
 export interface ElectionList {

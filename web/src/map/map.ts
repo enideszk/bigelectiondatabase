@@ -1,12 +1,20 @@
 /**
  * The Leaflet map: unit boundaries from the GeoJSON files in data/geo/, drawn on canvas, colored
- * by the winning party list, with hover, click and a selection outline.
+ * by the winning party list, with a hover card, click and a selection outline.
  *
  * Each level's units valid on a date become one Leaflet layer, built once and kept: every election
  * since the last boundary change reuses it, so switching the year only repaints colors, and
  * switching the level swaps two prebuilt layers on the same canvas. Nothing is shown until both
  * the boundaries and the colors are there, so the previous view stays up until the new one is
  * ready (no flash). Hover and selection outlines live on their own canvases above the fills.
+ *
+ * Hover does not use Leaflet's canvas events: its renderer checks the pointer at most every 32 ms
+ * and drops the moves in between (Canvas._handleMouseHover), so the highlight trailed the cursor
+ * and could stay on the previous unit when the cursor stopped. Instead the raw mouse position is
+ * taken once per animation frame, the unit under it is found here (see hitTest), and highlight,
+ * card content and card position all change in that same frame. As in the owner's Israel
+ * dashboard, the card is one element for the life of the map, moved by a transform alone; its
+ * content is rebuilt, and its size measured (the only layout read), when the unit changes.
  */
 
 import type { Feature } from 'geojson';
@@ -21,12 +29,16 @@ import { HOVER_STYLE, NO_DATA_COLOR, SELECTION_STYLES, borderWeight, fillStyle, 
 /** Levels drawn with the county borders on top, for orientation. */
 const WITH_COUNTY_OVERLAY: Level[] = ['settlement', 'jaras', 'smd'];
 
-/** Drawing panes, bottom to top. Only the fills take pointer events. */
+/** Drawing panes, bottom to top. None takes pointer events: the map hit-tests itself. */
 const PANES = { fill: 400, lines: 410, hover: 420, select: 430 } as const;
 type Pane = keyof typeof PANES;
 
 /** Shown until the first boundaries are in (Hungary). */
 const INITIAL_BOUNDS = L.latLngBounds([45.74, 16.11], [48.59, 22.9]);
+
+/** Hover card placement: centered above the cursor, below it when there is no room above. */
+const CARD_GAP = 14;
+const CARD_MARGIN = 4;
 
 export interface FeatureRef {
   level: Level;
@@ -37,6 +49,8 @@ export interface MapCallbacks {
   onSelect: (unitId: string) => void;
   /** The pointer moved onto a unit (used to prefetch its data). */
   onHover?: (unitId: string) => void;
+  /** The hover card's content for a unit. */
+  describe: (unitId: string) => Node[];
 }
 
 /** One level's units valid on one date. */
@@ -47,7 +61,25 @@ interface LevelLayer {
   painted: { colors: Map<string, string>; weight: number } | null;
 }
 
+interface Hit {
+  id: string;
+  polygon: L.Polygon;
+}
+
 type Rings = L.LatLngExpression[] | L.LatLngExpression[][] | L.LatLngExpression[][][];
+
+/** Leaflet internals (1.9.4, pinned in package.json) used for hit-testing: a polygon's projected
+ *  pixel bounds and the point-in-polygon test its canvas renderer itself uses for clicks. */
+interface Projected {
+  _map?: L.Map;
+  _pxBounds?: L.Bounds;
+  _containsPoint(point: L.Point): boolean;
+}
+
+function contains(polygon: L.Polygon, layerPoint: L.Point): boolean {
+  const p = polygon as unknown as Projected;
+  return p._map !== undefined && p._pxBounds !== undefined && p._containsPoint(layerPoint);
+}
 
 export class ElectionMap {
   private readonly map: L.Map;
@@ -60,16 +92,25 @@ export class ElectionMap {
   private colors: Promise<Map<string, string>> = Promise.resolve(new Map());
   private shown: LevelLayer | null = null;
   private overlay: LevelLayer | null = null;
-  private hovered: { id: string; outline: L.Polygon } | null = null;
   private selected: FeatureRef | null = null;
   private selection: L.LayerGroup | null = null;
   private renderToken = 0;
-  private pointer: L.Point | null = null;
+
+  // hover
+  private hovered: Hit | null = null;
+  private outline: L.Polygon | null = null;
+  /** Last mouse position (client coordinates); null while the pointer is off the map. */
+  private pointer: { x: number; y: number } | null = null;
+  /** The map's box on the page, measured once and again after a resize or scroll. */
+  private box: DOMRect | null = null;
+  private cardSize = { width: 0, height: 0 };
+  /** Panning or zooming: Leaflet's projected coordinates are stale until it ends. */
+  private moving = false;
   private frame = 0;
 
   constructor(
     container: HTMLElement,
-    private readonly tooltip: HTMLElement,
+    private readonly card: HTMLElement,
     private readonly callbacks: MapCallbacks,
     attribution: string[],
     private readonly geoFiles: GeoFileMeta[],
@@ -86,10 +127,12 @@ export class ElectionMap {
     for (const [name, z] of Object.entries(PANES)) {
       const pane = this.map.createPane(name);
       pane.style.zIndex = String(z);
-      if (name !== 'fill') pane.style.pointerEvents = 'none';
+      // Mouse events go straight to the map container. A canvas that took them would run Leaflet's
+      // own hover check, which reads the canvas's page position (a layout read) on every move.
+      pane.style.pointerEvents = 'none';
     }
     this.renderers = {
-      fill: L.canvas({ pane: 'fill', padding: 0.4, tolerance: 2 }),
+      fill: L.canvas({ pane: 'fill', padding: 0.4 }),
       lines: L.canvas({ pane: 'lines', padding: 0.4 }),
       hover: L.canvas({ pane: 'hover', padding: 0.4 }),
       select: L.canvas({ pane: 'select', padding: 0.4 }),
@@ -102,13 +145,36 @@ export class ElectionMap {
     }
     // Dev builds only: the Leaflet instance for debugging in the browser console.
     if (import.meta.env.DEV) (globalThis as { __electionMap?: L.Map }).__electionMap = this.map;
+    this.card.hidden = true;
 
-    this.map.on('zoomend', () => this.repaint());
-    this.map.on('mousemove', (e: L.LeafletMouseEvent) => {
-      this.pointer = e.containerPoint;
-      if (this.hovered && !this.frame) this.frame = requestAnimationFrame(() => this.placeTooltip());
+    container.addEventListener(
+      'mousemove',
+      (e) => {
+        this.pointer = { x: e.clientX, y: e.clientY };
+        this.requestFrame();
+      },
+      { passive: true },
+    );
+    container.addEventListener('mouseleave', () => {
+      this.pointer = null;
+      this.unhover();
     });
-    this.map.on('mouseout movestart zoomstart', () => this.unhover());
+    window.addEventListener('scroll', () => (this.box = null), { passive: true, capture: true });
+    this.map.on('resize', () => (this.box = null));
+    this.map.on('movestart zoomstart', () => {
+      this.moving = true;
+      this.unhover();
+    });
+    // The card comes back where the cursor rests (after Leaflet has re-projected the layers).
+    this.map.on('moveend zoomend', () => {
+      this.moving = false;
+      this.requestFrame();
+    });
+    this.map.on('zoomend', () => this.repaint());
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      const hit = this.hitTest(e.containerPoint);
+      if (hit) this.callbacks.onSelect(hit.id);
+    });
   }
 
   /** Show the boundaries valid on `date`, colored by the election's winners (gray without one).
@@ -134,6 +200,13 @@ export class ElectionMap {
     await this.drawSelection();
   }
 
+  /** Rebuild the hover card (its data changed, e.g. another election was loaded). */
+  refreshCard(): void {
+    if (!this.hovered) return;
+    this.fillCard(this.hovered.id);
+    this.requestFrame();
+  }
+
   private async render(): Promise<void> {
     const { level, date } = this;
     if (date === null) return; // no view yet: setView comes first
@@ -153,6 +226,7 @@ export class ElectionMap {
       layer?.group.addTo(this.map);
       this.shown?.group.remove();
       this.shown = layer;
+      this.requestFrame(); // hover whatever is now under the cursor
     }
     if (overlay !== this.overlay) {
       overlay?.group.addTo(this.map);
@@ -186,17 +260,9 @@ export class ElectionMap {
     const options = {
       pane: 'fill',
       renderer: this.renderers.fill,
+      interactive: false, // hover and click are handled by the map itself (hitTest)
       style: () => fillStyle(NO_DATA_COLOR, zoom),
-      onEachFeature: (feature: GeoFeature, layer: L.Layer) => {
-        const { id, name } = feature.properties;
-        const polygon = layer as L.Polygon;
-        byId.set(id, polygon);
-        polygon.on('mouseover', () => this.hover(id, name, polygon));
-        polygon.on('mouseout', () => {
-          if (this.hovered?.id === id) this.unhover();
-        });
-        polygon.on('click', () => this.callbacks.onSelect(id));
-      },
+      onEachFeature: (feature: GeoFeature, layer: L.Layer) => byId.set(feature.properties.id, layer as L.Polygon),
     } as L.GeoJSONOptions;
     return { group: L.geoJSON(features as unknown as Feature[], options), byId, painted: null };
   }
@@ -239,34 +305,76 @@ export class ElectionMap {
     });
   }
 
-  private hover(id: string, name: string, polygon: L.Polygon): void {
-    if (this.hovered?.id === id) return;
-    this.unhover();
-    const outline = L.polygon(polygon.getLatLngs() as Rings, {
-      ...HOVER_STYLE,
-      pane: 'hover',
-      renderer: this.renderers.hover,
-      interactive: false,
-    }).addTo(this.map);
-    this.hovered = { id, outline };
-    this.tooltip.textContent = name;
-    this.tooltip.hidden = false;
-    this.placeTooltip();
-    this.callbacks.onHover?.(id);
+  // ---- hover ----------------------------------------------------------------------------------
+
+  private requestFrame(): void {
+    if (!this.frame) this.frame = requestAnimationFrame(() => this.onFrame());
+  }
+
+  /** Once per animation frame while the pointer moves: find the unit under it, then move the card. */
+  private onFrame(): void {
+    this.frame = 0;
+    if (!this.pointer || this.moving) return;
+    const box = (this.box ??= this.map.getContainer().getBoundingClientRect());
+    const x = this.pointer.x - box.left;
+    const y = this.pointer.y - box.top;
+    const hit = this.hitTest(L.point(x, y));
+    if (hit?.id !== this.hovered?.id) {
+      if (hit) this.hover(hit);
+      else this.unhover();
+    }
+    if (this.hovered) this.placeCard(x, y, box.width);
+  }
+
+  /** The unit of the shown level under a point of the map container. */
+  private hitTest(containerPoint: L.Point): Hit | null {
+    if (!this.shown) return null;
+    const p = this.map.containerPointToLayerPoint(containerPoint);
+    // Usually the pointer is still in the same unit; keeping it also stops the pixels on a shared
+    // border from flickering between the two neighbors.
+    if (this.hovered && contains(this.hovered.polygon, p)) return this.hovered;
+    for (const [id, polygon] of this.shown.byId) {
+      if (contains(polygon, p)) return { id, polygon };
+    }
+    return null;
+  }
+
+  private hover(hit: Hit): void {
+    this.hovered = hit;
+    // Traced from the latlngs the fill polygon already holds: nothing is parsed or built again.
+    const rings = hit.polygon.getLatLngs() as Rings;
+    if (this.outline) this.outline.setLatLngs(rings);
+    else this.outline = L.polygon(rings, { ...HOVER_STYLE, pane: 'hover', renderer: this.renderers.hover, interactive: false });
+    if (!this.map.hasLayer(this.outline)) this.outline.addTo(this.map);
+    this.map.getContainer().classList.add('unit-hover');
+    this.fillCard(hit.id);
+    this.callbacks.onHover?.(hit.id);
   }
 
   private unhover(): void {
     if (!this.hovered) return;
-    this.hovered.outline.remove();
     this.hovered = null;
-    this.tooltip.hidden = true;
+    this.outline?.remove();
+    this.card.hidden = true;
+    this.map.getContainer().classList.remove('unit-hover');
   }
 
-  private placeTooltip(): void {
-    this.frame = 0;
-    if (!this.pointer || !this.hovered) return;
-    this.tooltip.style.transform = `translate(${this.pointer.x + 14}px, ${this.pointer.y + 14}px)`;
+  private fillCard(unitId: string): void {
+    this.card.replaceChildren(...this.callbacks.describe(unitId));
+    this.card.hidden = false;
+    // The one layout read, taken when the content changes rather than every frame.
+    this.cardSize = { width: this.card.offsetWidth, height: this.card.offsetHeight };
   }
+
+  private placeCard(x: number, y: number, mapWidth: number): void {
+    const { width, height } = this.cardSize;
+    const left = Math.min(Math.max(CARD_MARGIN, x - width / 2), Math.max(CARD_MARGIN, mapWidth - width - CARD_MARGIN));
+    const above = y - height - CARD_GAP;
+    const top = above >= CARD_MARGIN ? above : y + CARD_GAP + 6;
+    this.card.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+  }
+
+  // ---- selection ------------------------------------------------------------------------------
 
   private async drawSelection(): Promise<void> {
     const { selected, date } = this;

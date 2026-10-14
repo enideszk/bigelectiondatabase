@@ -845,12 +845,20 @@
             "type": "number"
           },
           "description": "Unit id -> list_id of the winning party list (round 1), for every unit with results. Colors the map."
+        },
+        "summaries": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UnitSummary"
+          },
+          "description": "Unit id -> what the map's hover card shows, for the same units as `winners`."
         }
       },
       "required": [
         "id",
         "lists",
-        "winners"
+        "winners",
+        "summaries"
       ],
       "additionalProperties": false
     },
@@ -884,6 +892,36 @@
         "parties"
       ],
       "additionalProperties": false
+    },
+    "UnitSummary": {
+      "type": "object",
+      "properties": {
+        "turnout": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Voted / registered (0..1); null when unknown."
+        },
+        "top": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "description": "The (up to) four party lists with the most votes, most first: [list_id, share of the valid list ballots (0..1)] — the same denominator as the official results and the side panel."
+        }
+      },
+      "required": [
+        "turnout",
+        "top"
+      ],
+      "additionalProperties": false,
+      "description": "Round 1, list ballot."
     },
     "GeoFile": {
       "type": "object",

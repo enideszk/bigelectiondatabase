@@ -100,6 +100,16 @@ def test_merged_settlement_only_has_elections_before_the_merge(exported):
     assert kiskamu["lineage"][0]["direction"] == "to"
 
 
+def test_hover_summaries_lead_with_the_winner(exported):
+    election = _load(exported / "elections" / "parliament-2018.json")
+    assert set(election["summaries"]) == set(election["winners"])
+    for unit_id, summary in election["summaries"].items():
+        shares = [share for _, share in summary["top"]]
+        assert summary["top"][0][0] == election["winners"][unit_id], unit_id
+        assert shares == sorted(shares, reverse=True) and sum(shares) <= 1.0001, unit_id
+        assert summary["turnout"] is None or 0 < summary["turnout"] <= 1, unit_id
+
+
 def test_every_settlement_has_a_winner(exported):
     winners = _load(exported / "elections" / "parliament-2018.json")["winners"]
     index = _load(exported / "units" / "index.json")["units"]

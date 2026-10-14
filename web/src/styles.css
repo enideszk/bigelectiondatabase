@@ -248,20 +248,96 @@ input:focus-visible,
   box-shadow: inset 0 0 0 1px rgba(242, 245, 249, 0.2);
 }
 
-.map-tooltip {
+/* The map's hover card (map/map.ts, map/card.ts), after the Israel dashboard's. One element for the
+   life of the map, positioned by its transform alone (left/top stay at the origin) on its own
+   compositor layer, so moving it never re-lays-out or repaints the map underneath. */
+.map-card {
+  --card-w: 196px;
   position: absolute;
   top: 0;
   left: 0;
   z-index: 3;
   pointer-events: none;
-  padding: 4px 9px;
+  will-change: transform;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  background: rgba(13, 17, 24, 0.97);
   border: 1px solid var(--hair);
   box-shadow: var(--shadow);
   color: var(--ink);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.mc-name,
+.mc-sub {
+  max-width: var(--card-w);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-name {
+  font-weight: 650;
+}
+
+.mc-sub {
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Each row carries its share as its own background, as the side panel does. The block has a
+   width of its own (the card is sized to its text), so all bars share one scale. */
+.mc-rows {
+  min-width: var(--card-w);
+  margin: 6px 0 1px;
+}
+
+.mc-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  margin-bottom: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-bar {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.mc-bar > i {
+  display: block;
+  height: 100%;
+  opacity: 0.26;
+  border-radius: 0 3px 3px 0;
+}
+
+.mc-lbl {
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-pct {
+  position: relative;
+  font-weight: 650;
+}
+
+.mc-note {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Units are hit-tested by the map itself (Leaflet's own pointer cursor is never set). */
+#map.unit-hover {
+  cursor: pointer;
 }
 
 /* Leaflet's own stylesheet loads after this one: the #map prefix makes these overrides win. */

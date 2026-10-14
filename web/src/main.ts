@@ -5,6 +5,7 @@ import { loadElection, loadMeta, loadUnit, loadUnitIndex } from './lib/api';
 import { t } from './lib/i18n';
 import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
+import { cardContent } from './map/card';
 import { renderLegend, renderLevelControl } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
@@ -58,11 +59,15 @@ async function main(): Promise<void> {
     }, PREFETCH_DELAY_MS);
   };
 
-  const map = new ElectionMap(byId('map'), byId('map-tooltip'), { onSelect: select, onHover: prefetch }, meta.attribution, meta.geo);
+  let electionFile: ElectionFile | null = null;
+  const describe = (unitId: string) => {
+    const unit = units.get(unitId);
+    return unit ? cardContent(unit, units, meta, electionFile) : [];
+  };
+  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: select, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
-  let electionFile: ElectionFile | null = null;
 
   /** The unit whose outline and sidebar are on screen. A newly selected unit replaces it only
    *  once its file has arrived, so map and sidebar never disagree and the panel never blanks. */
@@ -104,6 +109,7 @@ async function main(): Promise<void> {
           if (currentElection()?.id !== election?.id) return; // the user moved on meanwhile
           electionFile = loaded;
           drawControls();
+          map.refreshCard();
         })
         .catch((error) => console.error(error));
     }

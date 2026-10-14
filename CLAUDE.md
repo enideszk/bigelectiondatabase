@@ -145,6 +145,14 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   idle. `setView(date, electionFilePromise)` changes nothing on screen until both the boundaries
   and the colors are in, so the old view stays up instead of flashing. Hover and selection
   outlines are separate polygons on their own panes/canvases (never restyle the fill for them).
+- **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
+  drop the moves in between, so the highlight trailed the cursor). Fill polygons are
+  `interactive: false`, panes take no pointer events; the map reads the raw mouse position once
+  per animation frame and hit-tests the shown layer itself (`hitTest`, Leaflet's `_containsPoint`
+  on the drawn, simplified rings; Leaflet is pinned at 1.9.4 for that). Click uses the same test.
+  The hover card (`map/card.ts`, data from `ElectionFile.summaries`) is one element moved by a
+  transform; its content is rebuilt and measured only when the unit changes. Measured: a sweep
+  over 166 settlements ran at the display rate with no long frames.
 - Leaflet's CSS loads after ours: map overrides in `styles.css` are prefixed with `#map`.
 - **Selection swaps atomically** (`main.ts`): a newly selected unit replaces the old outline and
   sidebar only once its file has loaded; a loading bar appears after 150 ms; resting the pointer
