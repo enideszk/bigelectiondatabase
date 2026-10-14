@@ -1,5 +1,4 @@
-"""Single-member electoral district (OEVK) maps for the three district sets, and which settlements
-belong to which district.
+"""Single-member electoral district (OEVK) maps for the three district sets.
 
 Raw:      data/raw/oevk_terkepek/{1990,2014,2022,2026}_oevk.geojson  (EPSG:4326, one property: name,
           e.g. "Budapest 01", "Csongrád 03")
@@ -14,12 +13,9 @@ District sets:
 The sets' start/end dates are approximate (any date between the last election of one set and the
 first of the next works: the map selects districts by set, not by date).
 
-Membership (settlement / Budapest district -> district) is derived spatially and is PROVISIONAL:
-a unit belongs to the districts of its own county holding at least 10% of its area, and always to
-the one holding most of it, so split cities get several districts. Polling-station data from the
-election loaders is authoritative and will replace this once elections are loaded.
+Which settlements belong to which district is computed by the district_membership loader.
 
-Requires: reference_regions, ksh_helysegnevtar, osm_boundaries_2026.
+Requires: reference_regions.
 """
 
 from __future__ import annotations
@@ -44,9 +40,6 @@ SOURCE = SourceInfo(
 
 SOURCE_DIR = "oevk_maps"
 RAW_DIR = "oevk_terkepek"
-# The OSM settlement map and the district maps come from different base data, so slivers of a few
-# percent appear along borders; a second district needs at least this share of the unit's area.
-MIN_SHARE = 0.10
 
 # set id, raw file, name, valid_from, valid_to
 SETS = [
@@ -100,34 +93,4 @@ def load(conn: psycopg.Connection, interim_dir: Path) -> dict[str, int]:
                                              for d in districts]),
         }
         counts["unit_geometry"] = load_geojson_geometries(conn, interim_dir / SOURCE_DIR / "districts.geojson", source_id)
-        counts["district_membership"] = conn.execute(
-            """
-            WITH local_county AS (
-                SELECT a.unit_id, a.ancestor_id AS county_unit_id
-                FROM v_unit_ancestor a
-                JOIN unit c ON c.unit_id = a.ancestor_id AND c.unit_type = 'county'
-                WHERE a.period @> CURRENT_DATE
-            ),
-            overlap AS (
-                SELECT l.unit_id AS local_unit_id, d.unit_id AS district_unit_id, ed.district_set_id,
-                       ST_Area(ST_Intersection(lg.geom, dg.geom)) / NULLIF(ST_Area(lg.geom), 0) AS share
-                FROM unit l
-                JOIN local_county lc ON lc.unit_id = l.unit_id
-                JOIN unit_geometry lg ON lg.unit_id = l.unit_id
-                JOIN unit_geometry dg ON dg.source_id = %(sid)s AND dg.geom && lg.geom
-                JOIN unit d ON d.unit_id = dg.unit_id
-                JOIN electoral_district ed ON ed.unit_id = d.unit_id AND ed.county_unit_id = lc.county_unit_id  -- districts never cross counties
-                WHERE l.unit_type IN ('settlement', 'bp_district')
-            ),
-            ranked AS (
-                SELECT *, row_number() OVER (PARTITION BY local_unit_id, district_set_id ORDER BY share DESC) AS rank
-                FROM overlap
-            )
-            INSERT INTO district_membership (local_unit_id, district_unit_id, source_id)
-            SELECT local_unit_id, district_unit_id, %(sid)s
-            FROM ranked
-            WHERE rank = 1 OR share >= %(min_share)s
-            """,
-            {"sid": source_id, "min_share": MIN_SHARE},
-        ).rowcount
     return counts

@@ -50,10 +50,39 @@ def name_key(name: str) -> str:
 
 
 def county_key(name: str) -> str:
-    """'Pest megye', 'PEST', 'Pest vármegye' -> 'pest'; 'CSONGRÁD' and 'Csongrád-Csanád' both -> 'csongrád'
-    (the county was renamed in 2020; older files use the old name)."""
+    """'Pest megye', 'PEST', 'Pest vármegye' -> 'pest'; 'BUDAPEST főváros' -> 'budapest';
+    'CSONGRÁD' and 'Csongrád-Csanád' both -> 'csongrád' (renamed in 2020; older files use the old name)."""
     text = name_key(name)
-    text = re.sub(r"\s+(vár)?megye$", "", text)
+    text = re.sub(r"\s+((vár)?megye|főváros)$", "", text)
     if text.startswith("csongrád"):
         return "csongrád"
     return text
+
+
+_SMALL_WORDS = {"a", "az", "és", "s", "vagy", "de", "is"}
+
+
+def hu_title(text: str) -> str:
+    """Title case for names published in capitals: 'MAGYAR KÉTFARKÚ KUTYA PÁRT' -> 'Magyar Kétfarkú
+    Kutya Párt', 'DR. HÖRCSIK RICHÁRD' -> 'Dr. Hörcsik Richárd'. Text that is not all capitals is
+    returned unchanged (it is already written the way its owner writes it)."""
+    text = " ".join(text.split())
+    if text != text.upper():
+        return text
+    words = []
+    for i, word in enumerate(text.lower().split(" ")):
+        if i > 0 and word in _SMALL_WORDS:
+            words.append(word)
+        else:
+            words.append("-".join(part[:1].upper() + part[1:] for part in word.split("-")))
+    return " ".join(words)
+
+
+def acronym(text: str, max_len: int = 12) -> str:
+    """Short label for a long organisation name: 'SPORTOS ÉS EGÉSZSÉGES MAGYARORSZÁGÉRT PÁRT' -> 'SEMP'.
+    Short names are returned as they are."""
+    text = " ".join(text.split())
+    if len(text) <= max_len:
+        return text
+    letters = [w[0] for w in re.split(r"[\s\-]+", text) if w and w[0].isalpha() and w.lower() not in _SMALL_WORDS]
+    return "".join(letters).upper()

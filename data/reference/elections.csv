@@ -1,0 +1,5 @@
+election_id,election_type,election_date,name_en,name_hu,district_set_id
+parliament-2014,parliament,2014-04-06,2014 parliamentary election,2014. évi országgyűlési választás,2011
+parliament-2018,parliament,2018-04-08,2018 parliamentary election,2018. évi országgyűlési választás,2011
+parliament-2022,parliament,2022-04-03,2022 parliamentary election,2022. évi országgyűlési választás,2011
+parliament-2026,parliament,2026-04-12,2026 parliamentary election,2026. évi országgyűlési választás,2024

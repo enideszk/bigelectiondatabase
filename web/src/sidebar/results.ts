@@ -16,7 +16,10 @@ function listView(ctx: SidebarContext): HTMLElement {
   const lists = ctx.results?.lists ?? [];
   const firstRound = Math.min(...lists.map((l) => l.round));
   const rows = lists.filter((l) => l.round === firstRound);
-  const total = rows.reduce((sum, l) => sum + l.votes, 0);
+  // Shares of all valid list ballots, as the official results count them (this includes the
+  // nationality lists' votes, which are not shown); the sum of the shown votes if turnout is missing.
+  const valid = ctx.results?.turnout.find((tr) => tr.round === firstRound && tr.ballot === 'list')?.valid;
+  const total = valid && valid > 0 ? valid : rows.reduce((sum, l) => sum + l.votes, 0);
   if (!rows.length || total === 0) return h('p', { class: 'd-empty' }, t.noListResults);
   return barList(
     rows.map((l, i): BarItem => ({

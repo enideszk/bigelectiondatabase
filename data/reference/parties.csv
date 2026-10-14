@@ -1,0 +1,123 @@
+party_id,name,short_name,color,notes
+fidesz,Fidesz – Magyar Polgári Szövetség,Fidesz,#fd8100,
+kdnp,Kereszténydemokrata Néppárt,KDNP,#9fc5e8,
+mszp,Magyar Szocialista Párt,MSZP,#e2001a,
+dk,Demokratikus Koalíció,DK,#0b3d91,
+jobbik,Jobbik Magyarországért Mozgalom,Jobbik,#00837a,
+lmp,LMP – Magyarország Zöld Pártja,LMP,#36ca8b,Lehet Más a Politika until 2019
+momentum,Momentum Mozgalom,Momentum,#8e6fce,
+parbeszed,Párbeszéd Magyarországért,Párbeszéd,#3a9d23,PM in the 2014 alliance
+egyutt,Együtt – A Korszakváltók Pártja,Együtt,#0099c6,Not the same as 'Együtt 2014' (egyutt_2014)
+mlp,Magyar Liberális Párt – Liberálisok,MLP,#f5c400,
+mkkp,Magyar Kétfarkú Kutya Párt,MKKP,#bfbfbf,
+mihazank,Mi Hazánk Mozgalom,Mi Hazánk,#6b8e23,
+tisza,Tisztelet és Szabadság Párt,TISZA,#33a3dc,
+munkaspart,Magyar Munkáspárt,Munkáspárt,#8b1a1a,
+iszomm,Igen Szolidaritás Magyarországért Mozgalom,ISZOMM,,
+csaladok,Családok Pártja,Családok,,
+miep,Magyar Igazság és Élet Pártja,MIÉP,,
+megoldas,Megoldás Mozgalom,Megoldás,,
+nep_2022,Normális Élet Pártja,NÉP,,Not the 2014 'NÉP' organisation
+sms,Seres Mária Szövetségesei,SMS,,
+hazanemelado,A Haza Nem Eladó Mozgalom Párt,Haza Nem Eladó,,
+zoldek,Zöldek Pártja,Zöldek,,
+sem,Szegény Emberek Magyarországért Párt,SEM,,
+mcp,Magyarországi Cigánypárt,MCP,,
+osszefogas_part,Összefogás Párt,Összefogás Párt,,Not the 2014 Összefogás alliance
+fkgp,"Független Kisgazda-, Földmunkás- és Polgári Párt",FKGP,,
+unknown,Unknown nominating organisation,?,,Used where the source does not name the organisation
+4k,4K!,4K!,,Minor organisation; added from the NVI files
+a_haza_partja,A Haza Pártja,HP,,Minor organisation; added from the NVI files
+a_magyar_vallalkozok_es_munkaadok_partja,A Magyar Vállalkozók és Munkaadók Pártja,MVMP,,Minor organisation; added from the NVI files
+a_mi_partunk_ima,A Mi Pártunk - Ima,MPI,,Minor organisation; added from the NVI files
+a_valasz,A Válasz,A Válasz,,Minor organisation; added from the NVI files
+aqp,AQP,AQP,,Minor organisation; added from the NVI files
+aquila_part,Aquila Párt,Aquila Párt,,Minor organisation; added from the NVI files
+civil_mozgalom,Civil Mozgalom,CM,,Minor organisation; added from the NVI files
+demokrata_part,Demokrata Párt,DP,,Minor organisation; added from the NVI files
+dolgozok_magyarorszagi_partja,Dolgozók Magyarországi Pártja,DMP,,Minor organisation; added from the NVI files
+egyenloseg_roma_part,Egyenlőség Roma Párt,ERP,,Minor organisation; added from the NVI files
+egyiksem,EGYIKSEM,EGYIKSEM,,Minor organisation; added from the NVI files
+egyutt_2014,Együtt 2014,Együtt 2014,,Minor organisation; added from the NVI files
+elegedetlenek_partja,Elégedetlenek Pártja,EP,,Minor organisation; added from the NVI files
+elegedett_magyarorszagert_mozgalom,Elégedett Magyarországért Mozgalom,EMM,,Minor organisation; added from the NVI files
+ep,EP,EP,,Minor organisation; added from the NVI files
+eu_rom,Eu. Rom,Eu. Rom,,Minor organisation; added from the NVI files
+europai_alternativa_part,Európai Alternatíva Párt,EAP,,Minor organisation; added from the NVI files
+europai_baloldal,Európai Baloldal,EB,,Minor organisation; added from the NVI files
+europai_ciganyok_demokratikus_partja,Európai Cigányok Demokratikus Pártja,ECDP,,Minor organisation; added from the NVI files
+europai_roma_keresztenyek_jobbleteert_de,Európai Roma Keresztények Jobblétéért Demokratikus Párt,ERKJDP,,Minor organisation; added from the NVI files
+fiatalok_es_idosek_tarsadalmi_integracio,Fiatalok és Idősek Társadalmi Integrációja Párt,FITIP,,Minor organisation; added from the NVI files
+fuggetlen_kisgazdapart,Független Kisgazdapárt,FK,,Minor organisation; added from the NVI files
+hajra_magyarorszag_part,Hajrá Magyarország! Párt,HMP,,Minor organisation; added from the NVI files
+halado_magyarorszagert_part,Haladó Magyarországért Párt,HMP,,Minor organisation; added from the NVI files
+hatmap,HATMAP,HATMAP,,Minor organisation; added from the NVI files
+haza_mindenkie_part,Haza Mindenkié Párt,HMP,,Minor organisation; added from the NVI files
+hatranyos_helyzetuek_partja,Hátrányos Helyzetűek Pártja,HHP,,Minor organisation; added from the NVI files
+iranytu_part,Iránytű Párt,Iránytű Párt,,Minor organisation; added from the NVI files
+jesz,JESZ,JESZ,,Minor organisation; added from the NVI files
+jo_ut_magyar_polgari_part,Jó Út Magyar Polgári Párt,JÚMPP,,Minor organisation; added from the NVI files
+joleti_magyarorszagot_part,Jóléti Magyarországot Párt,JMP,,Minor organisation; added from the NVI files
+kalozpart,Kalózpárt,Kalózpárt,,Minor organisation; added from the NVI files
+kell_az_osszefogas_part,Kell az Összefogás Párt,KÖP,,Minor organisation; added from the NVI files
+kisgazdapart_miep,Kisgazdapárt-Miép,KM,,Minor organisation; added from the NVI files
+kmsz,KMSZ,KMSZ,,Minor organisation; added from the NVI files
+kti,KTI,KTI,,Minor organisation; added from the NVI files
+kozlekedo_polgarok_partja,Közlekedő Polgárok Pártja,KPP,,Minor organisation; added from the NVI files
+kozos_nevezo_2018,Közös Nevező 2018,KN,,Minor organisation; added from the NVI files
+kozosen_egymasert_demokratikus_neppart,Közösen Egymásért Demokratikus Néppárt,KEDN,,Minor organisation; added from the NVI files
+lendulettel_magyarorszagert,Lendülettel Magyarországért,LM,,Minor organisation; added from the NVI files
+macsep,MACSEP,MACSEP,,Minor organisation; added from the NVI files
+magyar_demokratikus_unio,Magyar Demokratikus Unió,MDU,,Minor organisation; added from the NVI files
+magyar_szegenyek_es_dolgozok_demokratiku,Magyar Szegények és Dolgozók Demokratikus Szervezete,MSDDS,,Minor organisation; added from the NVI files
+magyarorszagon_elo_dolgozo_es_tanulo_emb,Magyarországon Élő Dolgozó és Tanuló Emberek Pártja,MÉDTEP,,Minor organisation; added from the NVI files
+magyarorszagert_demokratikus_part,Magyarországért Demokratikus Párt,MDP,,Minor organisation; added from the NVI files
+majp,MAJP,MAJP,,Minor organisation; added from the NVI files
+mcf,MCF,MCF,,Minor organisation; added from the NVI files
+mdu,MDU,MDU,,Minor organisation; added from the NVI files
+megujulaspart,Megújuláspárt,M,,Minor organisation; added from the NVI files
+mgp,MGP,MGP,,Minor organisation; added from the NVI files
+mi_nok_part,Mi Nők Párt,Mi Nők Párt,,Minor organisation; added from the NVI files
+minden_szegenyert_part,Minden Szegényért Párt,MSP,,Minor organisation; added from the NVI files
+mindenkor_a_magyarokert_mozgalom,Mindenkor a Magyarokért Mozgalom,MMM,,Minor organisation; added from the NVI files
+mkszu,MKSZU,MKSZU,,Minor organisation; added from the NVI files
+mnp,MNP,MNP,,Minor organisation; added from the NVI files
+modern_magyarorszag_mozgalom_part,Modern Magyarország Mozgalom Párt,MMMP,,Minor organisation; added from the NVI files
+mrpp,MRPP,MRPP,,Minor organisation; added from the NVI files
+mszdp,MSZDP,MSZDP,,Minor organisation; added from the NVI files
+nemzetegyesito_mozgalom,Nemzetegyesítő Mozgalom,NM,,Minor organisation; added from the NVI files
+nemzeti_egyuttmukodes_es_megbekeles_part,Nemzeti Együttműködés és Megbékélés Párt,NEMP,,Minor organisation; added from the NVI files
+nemzeti_forr_part,Nemzeti Forr.Párt,NF,,Minor organisation; added from the NVI files
+nemzeti_zold_koalicio,Nemzeti Zöld Koalíció,NZK,,Minor organisation; added from the NVI files
+nemzeti_erdekert,Nemzeti Érdekért,NÉ,,Minor organisation; added from the NVI files
+net_part,Net Párt,Net Párt,,Minor organisation; added from the NVI files
+nop,NOP,NOP,,Minor organisation; added from the NVI files
+nep,NÉP,NÉP,,Minor organisation; added from the NVI files
+nep_oldali_part,Nép Oldali Párt,NOP,,Minor organisation; added from the NVI files
+opre_roma_cigany_demokrata_neppart,Opre Roma - Cigány Demokrata Néppárt,ORCDN,,Minor organisation; added from the NVI files
+origo_part,Origó Párt,Origó Párt,,Minor organisation; added from the NVI files
+oxigen_part,Oxigén Párt,Oxigén Párt,,Minor organisation; added from the NVI files
+polgari_valasz_mozgalom,Polgári Válasz Mozgalom,PVM,,Minor organisation; added from the NVI files
+rend_part,Rend Párt,Rend Párt,,Minor organisation; added from the NVI files
+rend_es_elszamoltatas_part,Rend és Elszámoltatás Párt,REP,,Minor organisation; added from the NVI files
+rend_szabadsag,"Rend, Szabadság",RS,,Minor organisation; added from the NVI files
+sportos_es_egeszseges_magyarorszagert_pa,Sportos és Egészséges Magyarországért Párt,SEMP,,Minor organisation; added from the NVI files
+szava,SZAVA,SZAVA,,Minor organisation; added from the NVI files
+szdp,SZDP,SZDP,,Minor organisation; added from the NVI files
+szegenyekert_part,Szegényekért Párt,SP,,Minor organisation; added from the NVI files
+szem_nopart,Szem-Nőpárt,Szem-Nőpárt,,Minor organisation; added from the NVI files
+szmp,SZMP,SZMP,,Minor organisation; added from the NVI files
+szocialdemokratak,Szociáldemokraták,S,,Minor organisation; added from the NVI files
+tbp,TBP,TBP,,Minor organisation; added from the NVI files
+tempo,TEMPO,TEMPO,,Minor organisation; added from the NVI files
+tenni_akaras_mozgalom,Tenni Akarás Mozgalom,TAM,,Minor organisation; added from the NVI files
+tenni_akarok_magyarorszagi_partja,Tenni Akarók Magyarországi Pártja,TAMP,,Minor organisation; added from the NVI files
+valodi_demokrata_part,Valódi Demokrata Párt,VDP,,Minor organisation; added from the NVI files
+elhetobb_boldog_magyarorszagert_part,"Élhetőbb, Boldog Magyarországért Párt",ÉBMP,,Minor organisation; added from the NVI files
+elolanc,ÉLŐLÁNC,ÉLŐLÁNC,,Minor organisation; added from the NVI files
+ertunk_ertetek_a_hiteles_part,Értünk Értetek - a Hiteles Párt,ÉÉHP,,Minor organisation; added from the NVI files
+osszefogas_a_civilekert_part,Összefogás a Civilekért Párt,ÖCP,,Minor organisation; added from the NVI files
+udp,ÚDP,ÚDP,,Minor organisation; added from the NVI files
+ugp,ÚGP,ÚGP,,Minor organisation; added from the NVI files
+uj_magyar_front_mozgalom_part,Új Magyar Front Mozgalom Párt,ÚMFMP,,Minor organisation; added from the NVI files
+ump,ÚMP,ÚMP,,Minor organisation; added from the NVI files

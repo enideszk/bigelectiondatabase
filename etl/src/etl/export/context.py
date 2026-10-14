@@ -137,7 +137,7 @@ class ExportContext:
             elections[r["election_id"]]["rounds"].append(r)
 
         parties = {r["party_id"]: r for r in rows("SELECT party_id, name, short_name, color FROM party")}
-        lists = {r["list_id"]: r for r in rows("SELECT list_id, election_id, name, short_name, color FROM party_list")}
+        lists = {r["list_id"]: r for r in rows("SELECT list_id, election_id, name, short_name, list_kind, color FROM party_list")}
         for r in lists.values():
             r["party_ids"] = []
         for r in rows("SELECT list_id, party_id FROM party_list_member ORDER BY list_id, position"):
@@ -198,7 +198,13 @@ class ExportContext:
             lambda r: (r["election_id"], r["unit_id"]),
         )
         ctx.list_votes = grouped(
-            "SELECT election_id, unit_id, round_no, list_id, votes FROM mv_list_result_agg ORDER BY round_no, votes DESC, list_id",
+            # Party lists only: nationality lists are on a separate ballot (kept in the database, not shown).
+            """
+            SELECT r.election_id, r.unit_id, r.round_no, r.list_id, r.votes
+            FROM mv_list_result_agg r JOIN party_list l USING (list_id)
+            WHERE l.list_kind = 'party'
+            ORDER BY r.round_no, r.votes DESC, r.list_id
+            """,
             lambda r: (r["election_id"], r["unit_id"]),
         )
         ctx.candidate_votes = grouped(

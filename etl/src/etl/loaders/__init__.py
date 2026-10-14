@@ -14,11 +14,30 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from . import ksh_helysegnevtar, oevk_maps, osm_boundaries_2026, reference_regions
+from . import (
+    district_membership,
+    ksh_helysegnevtar,
+    nvi_parliament_2014,
+    nvi_parliament_2018,
+    nvi_parliament_2022,
+    nvi_parliament_2026,
+    oevk_maps,
+    osm_boundaries_2026,
+    reference_elections,
+    reference_parties,
+    reference_regions,
+)
 
 LOADERS: dict[str, ModuleType] = {
     "reference_regions": reference_regions,
     "ksh_helysegnevtar": ksh_helysegnevtar,
     "osm_boundaries_2026": osm_boundaries_2026,
     "oevk_maps": oevk_maps,
+    "reference_elections": reference_elections,
+    "reference_parties": reference_parties,
+    "nvi_parliament_2014": nvi_parliament_2014,
+    "nvi_parliament_2018": nvi_parliament_2018,
+    "nvi_parliament_2022": nvi_parliament_2022,
+    "nvi_parliament_2026": nvi_parliament_2026,
+    "district_membership": district_membership,
 }

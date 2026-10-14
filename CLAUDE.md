@@ -15,12 +15,30 @@ Phase 2 (in progress): real data, one source at a time (docs/adding-a-source.md)
 database `hu_data` now holds real data only; the fixture lives on in the test database.
 
 Loaded so far, in this order (`.\etl load <name>`, order = `LOADERS` in `loaders/__init__.py`):
-`reference_regions` → `ksh_helysegnevtar` → `osm_boundaries_2026` → `oevk_maps`. No elections yet.
+`reference_regions` → `ksh_helysegnevtar` → `osm_boundaries_2026` → `oevk_maps` →
+`reference_elections` → `reference_parties` → `nvi_parliament_2014` / `_2018` / `_2022` / `_2026` →
+`district_membership`. Elections loaded: parliamentary 2014–2026 (polling-station level).
 Raw inputs (gitignored) are in `data/raw/`: `valasztasi_eredmenyek_1990-2024/` (all NVI results
 1990–2026, 1.9 GB, each election nested one folder deeper, e.g. `1990_parlamenti/1990_parlamenti/`),
 `ksh_helysegnevtar_2026/`, `magyarorszag_telepulesek_2026/`, `oevk_terkepek/` (district maps).
-District membership is currently derived spatially by `oevk_maps` (provisional); polling-station
-data should replace it once elections are loaded.
+`district_membership` derives settlement ↔ district from the polling stations; only district sets
+without station data (1990 so far) fall back to polygon overlap.
+
+Parliamentary results (`loaders/_nvi_parliament.py`, shared by the four year modules):
+- Party names in the files are matched through `data/reference/party_aliases.csv` (alias →
+  `party_ids` joined by `|`, display name, short name, color); parties are in `parties.csv`.
+  An unknown list/organisation name is reported and stored with a generated name/acronym: add
+  an alias row instead of special-casing a loader. Joint lists: EM 2022 = DK|Jobbik|Momentum|
+  MSZP|LMP|Párbeszéd, Összefogás 2014 = MSZP|Együtt|DK|Párbeszéd|MLP.
+- Mail votes (levélszavazás) go to unit `special-mail` (child of the country).
+- Nationality lists are stored (`list_kind = 'nationality'`) but hidden in the UI and the winner
+  view; list shares use all valid list ballots as the denominator, as the official results do.
+- Namesake candidates exist (2014, 2018 decoys): candidates are keyed by ballot position.
+- 2026: the per-county xls files do not name candidates' nominating organisations, so they are
+  stored with party `unknown` ("?") until a source for them is added to `data/raw`. Only files in
+  the project folder may be used (owner's rule).
+- Balatonakarattya split from Balatonkenese in 2014 after the election: its 2014 votes are inside
+  Balatonkenese (no lineage modelled yet).
 
 ## Commands
 
@@ -51,7 +69,8 @@ Definition of done for any change: `.\etl test` and `npm test` pass, `npm run ty
   resources" (file saves break). Don't turn polling off when working via Z:.
 - **Never let Vite watch `public/data/` or `public/tiles/`** (`server.watch.ignored`). Polling the
   thousands of generated files starved the dev server: 3–22 s per request instead of ~15 ms.
-  After `.\etl build`, refresh the page by hand.
+  Vite only serves public files it knows from startup or the watcher, so `serveGenerated()` in
+  vite.config.ts serves these two folders from disk itself. After `.\etl build`, refresh the page.
 - **Small files on the share cost ~11 ms each** (create) and ~4 ms (delete) vs < 1 ms locally.
   The exporter therefore builds everything in memory and writes with 32 threads, overwriting in
   place and deleting only stale files (export: 62 s -> 7 s). Tiles are cut with 8 parallel
