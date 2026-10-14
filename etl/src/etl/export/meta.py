@@ -12,6 +12,8 @@ def build_meta(ctx: ExportContext) -> dict:
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "is_fixture": ctx.is_fixture,
+        # Licenses that require attribution carry it after a "©" (e.g. "ODbL 1.0 — © OpenStreetMap contributors").
+        "attribution": sorted({lic[lic.index("©"):].strip() for lic in ctx.licenses if "©" in lic}),
         "elections": [
             {
                 "id": e["election_id"],

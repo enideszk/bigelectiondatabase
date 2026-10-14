@@ -33,6 +33,11 @@
   box-sizing: border-box;
 }
 
+/* The hidden attribute must win over component display rules (e.g. .legend { display: flex }). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;

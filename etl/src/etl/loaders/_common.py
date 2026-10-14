@@ -83,13 +83,16 @@ def copy_csv(conn: psycopg.Connection, table: str, path: Path, source_id: int | 
 
 def load_geojson_geometries(conn: psycopg.Connection, path: Path, source_id: int) -> int:
     """Load a GeoJSON FeatureCollection (EPSG:4326) into unit_geometry. Each feature needs the
-    properties unit_id, valid_from, valid_to (dates may be null)."""
+    properties unit_id, valid_from, valid_to (dates may be null). Invalid polygons (self-intersections,
+    common in OSM extracts) are repaired with ST_MakeValid."""
     features = json.loads(path.read_text(encoding="utf-8"))["features"]
     with conn.cursor() as cur:
         cur.executemany(
             """
             INSERT INTO unit_geometry (unit_id, valid_from, valid_to, geom, source_id)
-            VALUES (%s, %s, %s, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), %s)
+            VALUES (%s, %s, %s,
+                    ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), 3)),
+                    %s)
             """,
             [
                 (

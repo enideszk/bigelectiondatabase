@@ -25,6 +25,8 @@ export interface Meta {
   generated_at: string;
   /** True when the database holds the FAKE development fixture; the site then shows a banner. */
   is_fixture: boolean;
+  /** Notices the sources' licenses require on the map, e.g. "© OpenStreetMap contributors". */
+  attribution: string[];
   /** Oldest first. */
   elections: ElectionMeta[];
   indicators: IndicatorMeta[];

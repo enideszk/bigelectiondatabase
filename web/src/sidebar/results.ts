@@ -67,7 +67,7 @@ function candidateView(ctx: SidebarContext): HTMLElement[] {
   const races = results?.races ?? [];
   if (!races.length) return [h('p', { class: 'd-empty' }, t.noCandidateResults)];
 
-  const rounds = ctx.election.rounds.map((r) => r.round);
+  const rounds = (ctx.election?.rounds ?? []).map((r) => r.round);
   const round = ctx.state.round;
   const districts = [...new Map(races.map((r) => [r.district.id, r.district])).values()];
   const showNames = districts.length > 1 || ctx.unit.type !== 'smd';

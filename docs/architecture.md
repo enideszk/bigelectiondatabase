@@ -48,12 +48,14 @@ names, plus `name_en` where an English name exists).
 | `unit_lineage` | crosswalk: merge, split (with weight), rename / recode (new code), transfer of territory |
 | `unit_geometry` | boundaries, versioned by validity period (EPSG:4326 MultiPolygons) |
 
-Codes: settlements and Budapest districts use KSH codes; counties the KSH/NVI county code
-(01 = Budapest … 20 = Zala); regions NUTS codes; electoral districts `<set>-<county>-<nn>`
-(e.g. `smd-2011-07-01` = Fejér 01 under the 2011 law).
+Codes: settlements and Budapest districts use 5-digit KSH codes; counties the KSH county code
+(01 = Budapest … 13 = Pest … 20 = Zala, `data/reference/counties.csv`); regions NUTS codes;
+electoral districts `<set>-<county>-<nn>` (e.g. `smd-2011-07-01` = Fejér 01 under the 2011 law).
+NVI election files number counties differently in different years, so loaders map them by name.
 
-Budapest: the city as a whole is `county-01`; its districts are `bp_district-01..23`, clickable
-units of their own (district XXIII appears in 1994 via a `split` lineage row from XX).
+Budapest: the city as a whole is `county-01`; its districts are `bp_district-<KSH code>`
+(e.g. `bp_district-09566` = Budapest I. kerület), clickable units of their own (district XXIII
+appears in 1994 via a `split` lineage row from XX).
 
 ### Elections
 

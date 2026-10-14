@@ -3,13 +3,13 @@
 import './styles.css';
 import { loadElection, loadMeta, loadUnit, loadUnitIndex } from './lib/api';
 import { t } from './lib/i18n';
-import type { ElectionFile, ElectionMeta, UnitIndexEntry } from './lib/types';
+import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
 import { renderLegend, renderLevelControl } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
-import { LEVELS, currentElection, getState, initState, setState, subscribe, type AppState, type Level } from './state';
+import { LEVELS, currentElection, getState, initState, setState, subscribe, viewDate, type AppState, type Level } from './state';
 
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -21,12 +21,12 @@ async function main(): Promise<void> {
     const unit = units.get(unitId);
     return unit ? levelOfType(unit.type) : null;
   };
-  /** How many units each map level shows on the election date. */
-  const levelCounts = (election: ElectionMeta): Record<Level, number> => {
+  /** How many units each map level shows on a date. */
+  const levelCounts = (date: IsoDate): Record<Level, number> => {
     const counts = Object.fromEntries(LEVELS.map((l) => [l, 0])) as Record<Level, number>;
     for (const unit of index.units) {
       const level = levelOfType(unit.type);
-      if (level && validOn(unit, election.date)) counts[level] += 1;
+      if (level && validOn(unit, date)) counts[level] += 1;
     }
     return counts;
   };
@@ -43,32 +43,37 @@ async function main(): Promise<void> {
     const level = levelOf(unitId);
     setState(level ? { unit: unitId, level } : { unit: unitId });
   };
-  const map = new ElectionMap(byId('map'), byId('map-tooltip'), select);
+  const map = new ElectionMap(byId('map'), byId('map-tooltip'), select, meta.attribution);
   createSearch(byId('search'), meta, index.units, select);
   const sidebar = byId('sidebar-content');
   let electionFile: ElectionFile | null = null;
 
   const drawControls = () => {
     const state = getState();
-    renderLevelControl(byId('level-control'), state.level, levelCounts(currentElection(state)), (level) => setState({ level }));
-    if (electionFile) renderLegend(byId('legend'), electionFile, levelOf, state.level);
+    renderLevelControl(byId('level-control'), state.level, levelCounts(viewDate(state)), (level) => setState({ level }));
+    const legend = byId('legend');
+    legend.hidden = !electionFile;
+    if (electionFile) renderLegend(legend, electionFile, levelOf, state.level);
   };
 
   let latestRender = 0;
   async function render(state: AppState, previous: AppState | null): Promise<void> {
     const token = ++latestRender;
     const election = currentElection(state);
-    const electionChanged = !previous || currentElection(previous).id !== election.id;
+    const electionChanged = !previous || currentElection(previous)?.id !== election?.id;
 
-    if (electionChanged) {
+    if (electionChanged && election) {
       loadElection(election.id)
         .then((file) => {
-          if (currentElection().id !== election.id) return; // the user moved on meanwhile
+          if (currentElection()?.id !== election.id) return; // the user moved on meanwhile
           electionFile = file;
-          void map.setElection(election, file);
+          void map.setView(election.date, election.district_set, file);
           drawControls();
         })
         .catch((error) => console.error(error));
+    } else if (electionChanged) {
+      electionFile = null; // no election loaded yet: today's boundaries, no colors
+      void map.setView(viewDate(state), null, null);
     }
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
     if (electionChanged || previous?.level !== state.level) drawControls();
@@ -89,7 +94,8 @@ async function main(): Promise<void> {
         units,
         unit,
         election,
-        results: unit.elections[election.id],
+        date: viewDate(state),
+        results: election ? unit.elections[election.id] : undefined,
         state,
         select,
         update: setState,

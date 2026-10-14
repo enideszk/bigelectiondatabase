@@ -26,6 +26,7 @@ def valid_on(row: dict, day: date) -> bool:
 @dataclass
 class ExportContext:
     is_fixture: bool
+    licenses: list[str]                          # source.license of every loaded source
     unit_types: list[dict]
     units: dict[str, dict]                       # unit_id -> unit row (+ rank, is_clickable)
     elections: dict[str, dict]                   # election_id -> row (+ rounds), oldest first
@@ -156,6 +157,7 @@ class ExportContext:
 
         ctx = cls(
             is_fixture=is_fixture,
+            licenses=[r["license"] for r in rows("SELECT license FROM source WHERE license IS NOT NULL")],
             unit_types=unit_types,
             units=units,
             elections=elections,

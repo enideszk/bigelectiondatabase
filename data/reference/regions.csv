@@ -1,0 +1,14 @@
+unit_type,code,name,name_en,parent_code,valid_from,valid_to
+country,HU,Magyarország,Hungary,,,
+nuts1,HU1,Közép-Magyarország,Central Hungary,HU,,
+nuts1,HU2,Dunántúl,Transdanubia,HU,,
+nuts1,HU3,Alföld és Észak,Great Plain and North,HU,,
+nuts2,HU10,Közép-Magyarország,Central Hungary,HU1,,2018-01-01
+nuts2,HU11,Budapest,Budapest,HU1,2018-01-01,
+nuts2,HU12,Pest,Pest,HU1,2018-01-01,
+nuts2,HU21,Közép-Dunántúl,Central Transdanubia,HU2,,
+nuts2,HU22,Nyugat-Dunántúl,Western Transdanubia,HU2,,
+nuts2,HU23,Dél-Dunántúl,Southern Transdanubia,HU2,,
+nuts2,HU31,Észak-Magyarország,Northern Hungary,HU3,,
+nuts2,HU32,Észak-Alföld,Northern Great Plain,HU3,,
+nuts2,HU33,Dél-Alföld,Southern Great Plain,HU3,,

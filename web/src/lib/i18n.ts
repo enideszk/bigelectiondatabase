@@ -25,6 +25,7 @@ export const t = {
   electionHeading: (year: number, typeName: string) => `${year} ${typeName.toLowerCase()} results`,
   notExisting: (name: string) => `${name} did not exist at the time of this election.`,
   noDataForElection: 'No results for this unit in this election.',
+  noElections: 'No election results are loaded yet.',
   pill: { final: 'Final result', noData: 'No data', notExisting: 'Did not exist' },
 
   participation: 'Participation',

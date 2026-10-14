@@ -71,7 +71,8 @@ export function validityFilter(level: Level | 'county', dateInt: number, distric
     ['<=', ['get', 'vf'], dateInt],
     ['>', ['get', 'vt'], dateInt],
   ];
-  if (level === 'smd') conditions.push(['==', ['get', 'set'], districtSet ?? '']);
+  // With an election, its own district set; without one, whichever set is valid on the date.
+  if (level === 'smd' && districtSet) conditions.push(['==', ['get', 'set'], districtSet]);
   return ['all', ...conditions];
 }
 

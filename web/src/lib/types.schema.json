@@ -60,6 +60,13 @@
           "type": "boolean",
           "description": "True when the database holds the FAKE development fixture; the site then shows a banner."
         },
+        "attribution": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Notices the sources' licenses require on the map, e.g. \"© OpenStreetMap contributors\"."
+        },
         "elections": {
           "type": "array",
           "items": {
@@ -84,6 +91,7 @@
         "schema_version",
         "generated_at",
         "is_fixture",
+        "attribution",
         "elections",
         "indicators",
         "unit_types"

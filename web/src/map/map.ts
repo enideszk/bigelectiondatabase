@@ -1,15 +1,15 @@
 /** The MapLibre map: tiles from PMTiles, choropleth by winning list, hover, click, selection. */
 
-import { Map as MapLibreMap, addProtocol, setWorkerUrl, type MapLayerMouseEvent } from 'maplibre-gl';
+import { AttributionControl, Map as MapLibreMap, addProtocol, setWorkerUrl, type MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // MapLibre 6 runs its worker from a separate file; with Vite it must be handed over explicitly.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { PMTiles, Protocol } from 'pmtiles';
 import { tilesUrl } from '../lib/api';
 import { dateToInt } from '../lib/format';
-import type { ElectionFile, ElectionMeta } from '../lib/types';
+import type { ElectionFile, IsoDate } from '../lib/types';
 import { LEVELS, type Level } from '../state';
-import { COUNTY_OVERLAY, SOURCE, buildStyle, fillLayer, lineLayer, selectedLayer, validityFilter, winnerColor } from './style';
+import { COUNTY_OVERLAY, NO_DATA_COLOR, SOURCE, buildStyle, fillLayer, lineLayer, selectedLayer, validityFilter, winnerColor } from './style';
 
 setWorkerUrl(workerUrl);
 const protocol = new Protocol();
@@ -31,6 +31,7 @@ export class ElectionMap {
     container: HTMLElement,
     private readonly tooltip: HTMLElement,
     private readonly onSelect: (unitId: string) => void,
+    attribution: string[],
   ) {
     const url = tilesUrl();
     const archive = new PMTiles(url);
@@ -47,6 +48,7 @@ export class ElectionMap {
       attributionControl: false,
     });
     this.map.touchZoomRotate.disableRotation();
+    if (attribution.length) this.map.addControl(new AttributionControl({ compact: true, customAttribution: attribution }), 'bottom-right');
     this.ready = new Promise((resolve) => this.map.once('load', () => resolve()));
     archive
       .getHeader()
@@ -55,12 +57,13 @@ export class ElectionMap {
     for (const level of LEVELS) this.bindEvents(level);
   }
 
-  async setElection(election: ElectionMeta, file: ElectionFile): Promise<void> {
+  /** Show the boundaries valid on `date`, colored by the election's winners (gray without an election). */
+  async setView(date: IsoDate, districtSet: string | null, file: ElectionFile | null): Promise<void> {
     await this.ready;
-    const day = dateToInt(election.date);
-    const color = winnerColor(file);
+    const day = dateToInt(date);
+    const color = file ? winnerColor(file) : NO_DATA_COLOR;
     for (const level of LEVELS) {
-      const filter = validityFilter(level, day, election.district_set);
+      const filter = validityFilter(level, day, districtSet);
       for (const layer of [fillLayer(level), lineLayer(level), selectedLayer(level)]) this.map.setFilter(layer, filter);
       this.map.setPaintProperty(fillLayer(level), 'fill-color', color);
     }

@@ -25,17 +25,19 @@ export function renderSideHead(ctx: SidebarContext): HTMLElement {
 }
 
 export function renderIdentity(ctx: SidebarContext): HTMLElement[] {
-  const { unit, election } = ctx;
+  const { unit } = ctx;
   const typeName = ctx.meta.unit_types.find((u) => u.type === unit.type)?.name ?? unit.type;
-  const exists = validOn(unit, election.date);
+  const exists = validOn(unit, ctx.date);
   const pill = !exists
     ? h('span', { class: 'state-pill hist' }, t.pill.notExisting)
-    : ctx.results
-      ? h('span', { class: 'state-pill done' }, t.pill.final)
-      : h('span', { class: 'state-pill none' }, t.pill.noData);
+    : !ctx.election
+      ? null
+      : ctx.results
+        ? h('span', { class: 'state-pill done' }, t.pill.final)
+        : h('span', { class: 'state-pill none' }, t.pill.noData);
 
   // Parents as of the election date (or the nearest day the unit existed). The country is implied.
-  const parents = parentsOn(unit.parents, referenceDate(unit, election.date))
+  const parents = parentsOn(unit.parents, referenceDate(unit, ctx.date))
     .filter((p) => p.type !== 'country')
     .map((p) => ({ id: p.id, name: displayName(p) }));
   const districts = ctx.results?.districts ?? [];

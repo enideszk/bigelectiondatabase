@@ -4,7 +4,7 @@
  * Selecting another unit adds a browser history entry; other changes replace the current one.
  */
 
-import type { ElectionMeta, ElectionType, Meta } from './lib/types';
+import type { ElectionMeta, ElectionType, IsoDate, Meta } from './lib/types';
 
 export type View = 'L' | 'E';
 export type Level = 'settlement' | 'jaras' | 'county' | 'nuts2' | 'nuts1' | 'smd';
@@ -46,9 +46,14 @@ export function subscribe(listener: Listener): void {
   listeners.add(listener);
 }
 
-/** The election the state points at (year + type). */
-export function currentElection(s: AppState = state): ElectionMeta {
-  return meta.elections.find((e) => e.year === s.year && e.type === s.type) ?? meta.elections[meta.elections.length - 1];
+/** The election the state points at (year + type); undefined while no election is loaded at all. */
+export function currentElection(s: AppState = state): ElectionMeta | undefined {
+  return meta.elections.find((e) => e.year === s.year && e.type === s.type) ?? meta.elections.at(-1);
+}
+
+/** The date the map and sidebar describe: the selected election's date, or today without elections. */
+export function viewDate(s: AppState = state): IsoDate {
+  return currentElection(s)?.date ?? new Date().toISOString().slice(0, 10);
 }
 
 function commit(next: AppState, history_: 'push' | 'replace' | 'none'): void {
@@ -61,10 +66,10 @@ function commit(next: AppState, history_: 'push' | 'replace' | 'none'): void {
 
 function fromUrl(): AppState {
   const p = new URLSearchParams(location.search);
-  const latest = meta.elections[meta.elections.length - 1];
+  const latest = meta.elections.at(-1);
   return normalize({
     unit: p.get('unit'),
-    year: Number(p.get('year')) || latest.year,
+    year: Number(p.get('year')) || latest?.year || new Date().getFullYear(),
     type: (p.get('type') as ElectionType | null) ?? 'parliament',
     view: p.get('view') === 'E' ? 'E' : 'L',
     round: Number(p.get('round')) || 1,
@@ -75,7 +80,8 @@ function fromUrl(): AppState {
 /** Clamp the state to something that exists (unknown year -> latest election, missing round -> 1). */
 function normalize(s: AppState): AppState {
   let election = meta.elections.find((e) => e.year === s.year && e.type === s.type);
-  if (!election) election = meta.elections.filter((e) => e.type === s.type).pop() ?? meta.elections[meta.elections.length - 1];
+  if (!election) election = meta.elections.filter((e) => e.type === s.type).pop() ?? meta.elections.at(-1);
+  if (!election) return { ...s, round: 1 }; // nothing loaded yet: keep the URL's year
   const round = election.rounds.some((r) => r.round === s.round) ? s.round : 1;
   return { ...s, year: election.year, type: election.type, round };
 }

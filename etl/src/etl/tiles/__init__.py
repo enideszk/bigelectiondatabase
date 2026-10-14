@@ -14,6 +14,8 @@ from __future__ import annotations
 import gzip
 import math
 import os
+import shutil
+import time
 from pathlib import Path
 
 import psycopg
@@ -132,5 +134,18 @@ def build_pmtiles(conn: psycopg.Connection, out: Path, max_zoom: int = 10, min_z
                 ],
             },
         )
-    os.replace(tmp, out)
+    _replace(tmp, out)
     return {"tiles": len(tiles), "bytes": out.stat().st_size}
+
+
+def _replace(tmp: Path, out: Path, attempts: int = 10) -> None:
+    """Swap the new file in. On Windows a file another program has open (the dev server, a virus
+    scanner) cannot be replaced; retry for a few seconds, then overwrite its contents in place."""
+    for attempt in range(attempts):
+        try:
+            os.replace(tmp, out)
+            return
+        except PermissionError:
+            time.sleep(0.5 * (attempt + 1))
+    shutil.copyfile(tmp, out)
+    tmp.unlink()

@@ -17,7 +17,7 @@ export function renderIndicators(ctx: SidebarContext): HTMLElement[] {
   const rows = ctx.meta.indicators.flatMap((indicator) => {
     const value = closestValue(
       ctx.unit.indicators.filter((v) => v.indicator === indicator.id),
-      ctx.election.year,
+      Number(ctx.date.slice(0, 4)),
     );
     if (!value) return [];
     return [
