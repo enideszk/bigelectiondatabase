@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mix, shareBreaks, shareStep } from '../src/lib/color';
+import { deepened, mix, shareBreaks, shareStep } from '../src/lib/color';
 
 describe('vote-share steps', () => {
   it('cuts at sixths and the top 5%, so each step holds about as many areas', () => {
@@ -13,6 +13,12 @@ describe('vote-share steps', () => {
   it('merges breaks that fall on the same share', () => {
     expect(shareBreaks([0, 0, 0, 0, 0, 0, 0, 0.5])).toEqual([0]);
     expect(shareBreaks([])).toEqual([]);
+  });
+
+  it('runs grey colors to near-black, not grey', () => {
+    expect(deepened('#9e9e9e')).toBe('#121418');
+    expect(deepened('#bfbfbf')).toBe('#121418');
+    expect(deepened('#fd8100')).not.toBe('#121418');
   });
 
   it('mixes colors end to end', () => {

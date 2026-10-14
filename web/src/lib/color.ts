@@ -52,9 +52,15 @@ export function mix(a: string, b: string, t: number): string {
   return rgbToHex(labToRgb(A.map((v, i) => v + (B[i] - v) * t) as Lab));
 }
 
-/** The top of a ramp: the color a little darker and a little more saturated. */
+/** Grey colors (independents, "?", parties without a color of their own) would ramp from near-white
+ *  only to grey: they run to near-black instead. Grey = chroma under NEUTRAL_CHROMA (CIELAB). */
+const NEUTRAL_TOP = '#121418';
+const NEUTRAL_CHROMA = 12;
+
+/** The top of a ramp: the color a little darker and a little more saturated (near-black for grey). */
 export function deepened(hex: string): string {
   const [l, a, b] = rgbToLab(hexToRgb(hex));
+  if (Math.hypot(a, b) < NEUTRAL_CHROMA) return NEUTRAL_TOP;
   return rgbToHex(labToRgb([l * 0.82, a * 1.2, b * 1.2]));
 }
 
