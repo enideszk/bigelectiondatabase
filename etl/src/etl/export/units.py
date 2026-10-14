@@ -124,6 +124,23 @@ def _unit_election(ctx: ExportContext, unit: dict, election: dict) -> dict:
         ],
         "races": _races(ctx, unit, election) if unit["unit_type"] in RACE_TYPES else [],
         "district_wins": _district_wins(ctx, unit, election) if unit["unit_type"] in WINS_TYPES else [],
+    } | (_mail(ctx, election["election_id"]) if unit["unit_type"] == "country" else {})
+
+
+def _mail(ctx: ExportContext, election_id: str) -> dict:
+    """The country's totals include the votes cast by mail; they are given apart as well, so the
+    site can show the results without them."""
+    mail = ctx.mail.get(election_id)
+    if not mail:
+        return {}
+    return {
+        "mail": {
+            "turnout": [
+                {k: t[k] for k in ("registered", "voted", "valid", "invalid")} | {"round": t["round_no"], "ballot": t["ballot"]}
+                for t in mail["turnout"]
+            ],
+            "lists": [{"round": r["round_no"], **ctx.list_display(r["list_id"]), "votes": r["votes"]} for r in mail["lists"]],
+        }
     }
 
 

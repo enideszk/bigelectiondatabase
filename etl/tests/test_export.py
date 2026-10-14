@@ -11,6 +11,7 @@ import pytest
 from etl import config, db
 from etl.export import export_all
 from etl.export.geo import LEVELS
+from etl.export.stations import station_id
 
 
 def _validator(type_name: str) -> jsonschema.Draft7Validator:
@@ -57,6 +58,10 @@ def test_every_file_matches_the_typescript_types(exported):
     share_validator = _validator("ShareFile")
     for path in (exported / "shares").rglob("*.json"):
         assert _errors(share_validator, _load(path)) == [], path.name
+        checked += 1
+    station_validator = _validator("StationFile")
+    for path in (exported / "stations").glob("*.json"):
+        assert _errors(station_validator, _load(path)) == [], path.name
         checked += 1
     indicator_validator = _validator("IndicatorFile")
     indicator_files = list((exported / "indicators").glob("*.json"))
@@ -149,3 +154,26 @@ def test_every_settlement_has_a_winner(exported):
     index = _load(exported / "units" / "index.json")["units"]
     settlements_2018 = [u["id"] for u in index if u["type"] == "settlement" and u["valid_to"] is None]
     assert settlements_2018 and all(s in winners for s in settlements_2018)
+
+
+def test_station_ids_follow_nvi():
+    """MAZ-OEVK-TAZ-SZK: the district number goes between NVI's county and settlement codes."""
+    assert station_id("01-001-002", "smd-2011-01-03") == "01-03-001-002"
+    assert station_id("13-120-011", "smd-2024-13-14") == "13-14-120-011"
+
+
+def test_stations_add_up_to_the_settlements(exported):
+    """Every station's votes, summed per settlement, are that settlement's results."""
+    for path in (exported / "stations").glob("*.json"):
+        stations = _load(path)
+        election_id = path.stem
+        options = stations["options"].get("L", [])
+        sums: dict[str, list[int]] = {}
+        for row in stations["stations"]:
+            totals = sums.setdefault(row["unit"], [0] * len(options))
+            for i, votes in enumerate(row["L"]):
+                totals[i] += votes
+        for unit_id, totals in sums.items():
+            lists = _load(exported / "units" / f"{unit_id}.json")["elections"][election_id]["lists"]
+            by_option = {l["option"]: l["votes"] for l in lists if l["round"] == 1}
+            assert {o: v for o, v in zip(options, totals) if v} == {o: v for o, v in by_option.items() if v}, unit_id

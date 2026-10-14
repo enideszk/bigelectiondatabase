@@ -45,6 +45,9 @@ class ExportContext:
     candidate_votes: dict[tuple[str, str], list[dict]] = field(default_factory=dict)
     winners: dict[str, dict[str, int]] = field(default_factory=dict)                    # election -> unit -> list
     indicator_values: dict[str, list[dict]] = field(default_factory=dict)
+    # election -> {"turnout": [...], "lists": [...]}: votes cast by mail (unit special-mail), which the
+    # country's totals include
+    mail: dict[str, dict[str, list[dict]]] = field(default_factory=dict)
     _descendants: dict[str, dict[str, set[str]]] = field(default_factory=dict, repr=False)
     _groups: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = field(default_factory=dict, repr=False)
     _list_options: dict[int, str] = field(default_factory=dict, repr=False)
@@ -271,6 +274,22 @@ class ExportContext:
             "SELECT unit_id, indicator_id, year, value FROM indicator_value ORDER BY indicator_id, year",
             lambda r: r["unit_id"],
         )
+        for r in rows(
+            """
+            SELECT election_id, round_no, ballot, registered, voted, valid, invalid
+            FROM turnout WHERE unit_id = 'special-mail' ORDER BY round_no, ballot
+            """
+        ):
+            ctx.mail.setdefault(r["election_id"], {"turnout": [], "lists": []})["turnout"].append(r)
+        for r in rows(
+            """
+            SELECT r.election_id, r.round_no, r.list_id, r.votes
+            FROM list_result r JOIN party_list l USING (list_id)
+            WHERE r.unit_id = 'special-mail' AND l.list_kind = 'party'
+            ORDER BY r.round_no, r.votes DESC, r.list_id
+            """
+        ):
+            ctx.mail.setdefault(r["election_id"], {"turnout": [], "lists": []})["lists"].append(r)
         return ctx
 
 

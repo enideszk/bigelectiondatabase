@@ -10,6 +10,7 @@ import { cardContent } from './map/card';
 import { buildColoring, legendFor, type Coloring } from './map/coloring';
 import { renderLegend, renderMapControl, renderMapPicker, renderNavToggle, renderViewSwitch } from './map/controls';
 import { Hierarchy, TOP_LEVEL } from './map/hierarchy';
+import { StationDialog } from './stations/dialog';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -99,7 +100,9 @@ async function main(): Promise<void> {
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
 
-  /** The unit whose outline and sidebar are on screen. A newly selected unit replaces it only
+  /** With nothing selected the panel shows the national results. */
+  const countryId = index.units.find((u) => u.type === 'country')?.id ?? null;
+  /** The unit whose sidebar (and outline) is on screen. A newly selected unit replaces it only
    *  once its file has arrived, so map and sidebar never disagree and the panel never blanks. */
   let shownUnit: string | null = null;
   let loadingTimer: number | undefined;
@@ -108,12 +111,44 @@ async function main(): Promise<void> {
     if (on) loadingTimer = window.setTimeout(() => sidebarPanel.classList.add('loading'), LOADING_BAR_DELAY_MS);
     else sidebarPanel.classList.remove('loading');
   };
-  const showSelection = (unitId: string | null) => {
-    const entry = unitId ? units.get(unitId) : undefined;
+  /** `panelUnit` in the side panel; `selected` (null: the national default) outlined on the map. */
+  const showSelection = (panelUnit: string | null, selected: string | null) => {
+    const entry = selected ? units.get(selected) : undefined;
     const layer = entry ? levelOfType(entry.type) : null;
     void map.select(entry && layer ? { level: layer, id: entry.id } : null);
-    shownUnit = unitId;
+    shownUnit = panelUnit;
   };
+
+  // The polling station dialog (?list=), and Escape: closes it, else clears the selection.
+  const dialog = new StationDialog();
+  const syncDialog = (state: AppState) => {
+    const election = currentElection(state);
+    const area = state.unit && units.has(state.unit) ? state.unit : countryId;
+    if (!state.list || !election || !area) {
+      if (dialog.isOpen) dialog.close();
+      return;
+    }
+    dialog.show({
+      meta,
+      units,
+      hierarchy,
+      election,
+      view: state.view,
+      area,
+      postal: state.postal,
+      tab: state.list,
+      onTab: (list) => setState({ list }),
+      onClose: () => setState({ list: null }),
+    });
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const state = getState();
+    if (state.list) return setState({ list: null });
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, select, textarea')) return; // e.g. the search box clears itself
+    if (state.unit) setState({ unit: null });
+  });
 
   const drawControls = () => {
     const state = getState();
@@ -194,23 +229,31 @@ async function main(): Promise<void> {
     // An area that did not exist on this date: keep the URL in step with the one shown.
     if (state.nav && focus !== state.focus) queueMicrotask(() => setState({ focus }));
     drawControls();
+    syncDialog(state);
 
-    if (!state.unit || !units.has(state.unit)) {
+    if (state.unit && !units.has(state.unit)) {
       setLoading(false);
-      showSelection(null);
-      return renderSidebarMessage(sidebar, state.unit ? t.loadError : t.selectPrompt);
+      showSelection(null, null);
+      return renderSidebarMessage(sidebar, t.loadError);
     }
-    const unitChanged = state.unit !== shownUnit;
+    // Nothing selected: the national results.
+    const panelUnit = state.unit ?? countryId;
+    if (!panelUnit) {
+      setLoading(false);
+      showSelection(null, null);
+      return renderSidebarMessage(sidebar, t.selectPrompt);
+    }
+    const unitChanged = panelUnit !== shownUnit;
     if (unitChanged) {
       // Keep the previous unit on screen while the new one loads; nothing to keep on first load.
       if (shownUnit === null) renderSidebarMessage(sidebar, t.loading);
       setLoading(true);
     }
     try {
-      const unit = await loadUnit(state.unit);
+      const unit = await loadUnit(panelUnit);
       if (token !== latestRender) return; // a newer render started while loading
       setLoading(false);
-      if (unitChanged) showSelection(state.unit);
+      if (unitChanged) showSelection(panelUnit, state.unit);
       renderSidebar(sidebar, {
         meta,
         units,
@@ -221,12 +264,13 @@ async function main(): Promise<void> {
         state,
         select,
         update: setState,
+        isDefault: state.unit === null,
       });
     } catch (error) {
       console.error(error);
       if (token === latestRender) {
         setLoading(false);
-        showSelection(null);
+        showSelection(null, null);
         renderSidebarMessage(sidebar, t.loadError);
       }
     }

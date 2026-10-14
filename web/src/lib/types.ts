@@ -172,6 +172,13 @@ export interface UnitElection {
   races: Race[];
   /** Above county level only: single-member districts won (final round), per winning party combination. */
   district_wins: DistrictWins[];
+  /** The country only: the votes cast by mail (party lists only), which the totals above include. */
+  mail?: MailVotes;
+}
+
+export interface MailVotes {
+  turnout: Turnout[];
+  lists: ListResult[];
 }
 
 export interface UnitRef {
@@ -288,6 +295,34 @@ export interface UnitSummary {
 /** One option's share (0..1) in every unit where it got votes (E: where it had a candidate). */
 export interface ShareFile {
   [unitId: string]: number;
+}
+
+// ---- data/stations/{election_id}.json ------------------------------------------------------------
+
+/** Every polling station's results (votes cast by mail belong to no station). */
+export interface StationFile {
+  /** The option ids (ElectionFile views) that the vote arrays of the stations refer to. */
+  options: { L?: string[]; E?: string[] };
+  stations: StationRow[];
+}
+
+export interface StationRow {
+  /** "MAZ-OEVK-TAZ-SZK": NVI county code, electoral district, NVI settlement code, station number. */
+  id: string;
+  /** The settlement or Budapest district it is in. */
+  unit: string;
+  /** Its electoral district. */
+  district: string | null;
+  /** A station for voters registered elsewhere (átjelentkezés). */
+  transfer?: boolean;
+  /** List ballot: [registered, voted, valid, invalid] (null = unknown). */
+  tl: (number | null)[];
+  /** Candidate ballot, the same. */
+  te: (number | null)[];
+  /** Party-list votes, in the order of options.L. */
+  L: number[];
+  /** Candidate votes by nominating parties: [index in options.E, votes]. */
+  E: [number, number][];
 }
 
 // ---- data/indicators/{indicator_id}.json ------------------------------------------------------

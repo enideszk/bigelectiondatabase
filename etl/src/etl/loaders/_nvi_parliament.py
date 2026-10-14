@@ -11,8 +11,8 @@ Every election is first cleaned into the same interim layout, data/interim/nvi_p
     candidate_votes.csv   station, county_code, oevk, name, organisation, votes
 
 and then loaded by load_election(), the same way for every year. `station` is NVI's polling station
-code "MM-TTT-SSS" (NVI county code, NVI settlement code, station number); it is only used to join
-the interim files. Counties are mapped by name (NVI's county numbering changed over time),
+code "MM-TTT-SSS" (NVI county code, NVI settlement code, station number); it joins the interim
+files and is stored as polling_station.nvi_code (shown on the site). Counties are mapped by name (NVI's county numbering changed over time),
 settlements by name (Budapest districts by number) against the KSH Helységnévtár.
 
 Parties: list names and nominating organisations are looked up in data/reference/party_aliases.csv
@@ -230,10 +230,14 @@ def load_election(conn: psycopg.Connection, interim: Path, source: SourceInfo, e
             units.append([unit_id, "polling_station", unit_id.removeprefix("polling_station-"),
                           f"{names[s['local_unit_id']]}, {int(s['number'])}. szavazókör", day, day + timedelta(days=1), source_id])
             stations.append([unit_id, election_id, s["local_unit_id"], district(s["county_code"], s["oevk"]), s["number"],
-                             s["is_transfer"] == "True", source_id])
+                             s["station"], s["is_transfer"] == "True", source_id])
         counts = {
             "unit (polling stations)": copy_rows(conn, "unit", ["unit_id", "unit_type", "code", "name", "valid_from", "valid_to", "source_id"], units),
-            "polling_station": copy_rows(conn, "polling_station", ["unit_id", "election_id", "local_unit_id", "district_unit_id", "number", "is_transfer", "source_id"], stations),
+            "polling_station": copy_rows(
+                conn, "polling_station",
+                ["unit_id", "election_id", "local_unit_id", "district_unit_id", "number", "nvi_code", "is_transfer", "source_id"],
+                stations,
+            ),
         }
         station_unit[MAIL] = "special-mail"
 

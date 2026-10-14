@@ -25,7 +25,13 @@ export interface AppState {
   nav: boolean;
   /** With `nav`: the area whose units the map shows (null = the whole country). */
   focus: string | null;
+  /** National results with the votes cast by mail (as the official totals); off = without them. */
+  postal: boolean;
+  /** The polling station dialog, open on this tab (null = closed). */
+  list: ListTab | null;
 }
+
+export type ListTab = 'stations' | 'hierarchy';
 
 type Listener = (state: AppState, previous: AppState) => void;
 
@@ -85,6 +91,8 @@ function fromUrl(): AppState {
     map: p.get('map') || null,
     nav: p.get('nav') === '1',
     focus: p.get('nav') === '1' ? p.get('focus') || null : null,
+    postal: p.get('postal') !== '0',
+    list: p.get('list') === 'stations' || p.get('list') === 'hierarchy' ? (p.get('list') as ListTab) : null,
   });
 }
 
@@ -108,5 +116,7 @@ function toUrl(s: AppState): string {
   if (s.map) p.set('map', s.map);
   if (s.nav) p.set('nav', '1');
   if (s.nav && s.focus) p.set('focus', s.focus);
+  if (!s.postal) p.set('postal', '0');
+  if (s.list) p.set('list', s.list);
   return `?${p.toString()}`;
 }

@@ -12,6 +12,7 @@ Output (default web/public/data/):
                               hover-card summary per unit
     shares/{id}/{view}/{option}.json   one option's share in every unit (vote-share map)
     indicators/{id}.json      one indicator's values ([year, value] pairs) in every unit (map)
+    stations/{id}.json        every polling station's results (polling station list)
     geo/{level}.json          map boundaries (GeoJSON), see geo.py
 
 Writing thousands of small files is dominated by per-file latency when the repo is on a network
@@ -33,6 +34,7 @@ from .context import ExportContext
 from .elections import build_election_files
 from .geo import build_geo_files
 from .meta import build_meta
+from .stations import build_station_file
 from .units import build_unit_file, build_unit_index
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -65,16 +67,22 @@ def export_all(conn: psycopg.Connection, out: Path) -> dict[str, int]:
     }
     files.update({out / "units" / f"{u}.json": to_json(build_unit_file(ctx, u)) for u in ctx.clickable_unit_ids})
     for election_id in ctx.elections:
-        for path, content in build_election_files(ctx, election_id).items():
+        election_files = build_election_files(ctx, election_id)
+        for path, content in election_files.items():
             if not all(SAFE_ID.match(part) for part in path.removesuffix(".json").split("/")):
                 raise ValueError(f"{path!r} cannot be used as a file name")
             files[out / path] = to_json(content)
+        views = election_files[f"elections/{election_id}.json"]["views"]
+        options = {v: [o["id"] for o in view["options"]] for v, view in views.items() if view}
+        station_file = build_station_file(conn, ctx, election_id, options)
+        if station_file:
+            files[out / "stations" / f"{election_id}.json"] = to_json(station_file)
     files.update({out / path: text for path, text in geo_files.items()})
     files.update({out / "indicators" / f"{i}.json": to_json(values) for i, values in _indicator_maps(ctx).items()})
 
     for directory in {path.parent for path in files}:
         directory.mkdir(parents=True, exist_ok=True)
-    subs = ("units", "elections", "geo", "shares", "indicators")
+    subs = ("units", "elections", "geo", "shares", "indicators", "stations")
     stale = [p for sub in subs for p in (out / sub).rglob("*.json") if p not in files]
     write_files(files, stale)
     return {

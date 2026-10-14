@@ -44,7 +44,7 @@ export function renderSideHead(ctx: SidebarContext): HTMLElement {
     'header',
     { class: 'side-head' },
     h('div', { class: 'side-title' }, h('h2', null, displayName(ctx.unit)), region ? h('div', { class: 'side-region' }, unitLink(ctx, region.id, region.name)) : null),
-    h('button', { type: 'button', class: 'btn btn-ghost btn-close', title: t.close, 'aria-label': t.close, onclick: () => ctx.update({ unit: null }) }, '×'),
+    ctx.isDefault ? null : h('button', { type: 'button', class: 'btn btn-ghost btn-close', title: t.close, 'aria-label': t.close, onclick: () => ctx.update({ unit: null }) }, '×'),
   );
 }
 

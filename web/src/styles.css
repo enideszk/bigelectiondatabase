@@ -1179,6 +1179,249 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
+/* national results: with or without the postal votes; the polling station list */
+.d-postal {
+  margin: 0 0 8px;
+}
+
+.d-stations {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+/* ---- polling station dialog (stations/dialog.ts) -------------------------------------------- */
+
+.sd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 3vh 2vw;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.sd-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1320px, 100%);
+  height: min(920px, 100%);
+  background: var(--surface-1);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.sd-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.sd-head h2 {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.sd-tabs {
+  flex: 1;
+}
+
+.sd-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 12px;
+}
+
+.sd-tools {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.sd-search {
+  flex: 1 1 340px;
+  padding: 7px 10px;
+}
+
+.sd-switch {
+  max-width: none;
+  white-space: nowrap;
+}
+
+.sd-count,
+.sd-note {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.sd-tablewrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--hair-soft);
+  border-radius: var(--radius-sm);
+}
+
+.sd-table {
+  font-size: 12.5px;
+}
+
+.sd-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  background: var(--surface-2);
+}
+
+.sd-table th button {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sd-table th.num button {
+  text-align: right;
+}
+
+.sd-table th button:hover {
+  color: var(--ink);
+}
+
+.sd-table th.asc button::after {
+  content: ' ▲';
+  color: var(--accent);
+}
+
+.sd-table th.desc button::after {
+  content: ' ▼';
+  color: var(--accent);
+}
+
+/* each row tinted with its winner's color, faint enough to read through */
+.sd-table tbody tr {
+  background: color-mix(in srgb, var(--tint) 17%, transparent);
+  cursor: pointer;
+}
+
+.sd-table tbody tr:hover {
+  background: color-mix(in srgb, var(--tint) 28%, transparent);
+}
+
+.sd-table tbody tr.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sd-table td {
+  padding: 5px 8px;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.sd-table td small {
+  color: var(--ink-3);
+}
+
+.sd-table td.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+
+.sd-table td.winner .swatch {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.sd-more {
+  display: block;
+  margin: 10px auto;
+}
+
+/* hierarchy tab */
+.sd-hier {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.sd-hier > * {
+  flex: none;
+}
+
+.sd-hier .res-rows,
+.sd-hier .sd-tablewrap {
+  max-width: 820px;
+}
+
+.sd-crumbs {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.sd-crumbs .d-link:disabled {
+  color: var(--ink);
+  cursor: default;
+  text-decoration: none;
+}
+
+.sd-hhead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sd-hname {
+  font-size: 21px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.sd-hkind {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sd-turnout {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sd-children td:first-child {
+  width: 50%;
+}
+
 /* ---- narrow screens: the toolbar wraps; on a phone the side panel goes below ------------ */
 
 @media (max-width: 1100px) {
@@ -1290,6 +1533,15 @@ input:focus-visible,
 
   .legend {
     display: none;
+  }
+
+  .sd-overlay {
+    padding: 0;
+  }
+
+  .sd-dialog {
+    height: 100%;
+    border-radius: 0;
   }
 }
 

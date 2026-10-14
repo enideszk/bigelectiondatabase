@@ -115,10 +115,23 @@ function candidateView(ctx: SidebarContext): HTMLElement[] {
   ];
 }
 
+/** National results: with or without the votes cast by mail (party lists only). */
+function postalSwitch(ctx: SidebarContext): HTMLElement | null {
+  if (!ctx.hasMail || ctx.state.view !== 'L') return null;
+  return h(
+    'label',
+    { class: 'nav-switch d-postal' },
+    h('input', { type: 'checkbox', role: 'switch', checked: ctx.state.postal, onchange: (e: Event) => ctx.update({ postal: (e.target as HTMLInputElement).checked }) }),
+    h('span', { class: 'nav-track', 'aria-hidden': 'true' }),
+    h('span', null, t.includePostal),
+  );
+}
+
 export function renderResults(ctx: SidebarContext): HTMLElement[] {
   const view = ctx.state.view;
   return [
     h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, view === 'L' ? t.viewLTitle : t.viewETitle))),
+    ...[postalSwitch(ctx)].filter((x): x is HTMLElement => x !== null),
     ...(view === 'L' ? [listView(ctx)] : candidateView(ctx)),
     h('p', { class: 'd-note quiet' }, t.pickHint),
   ];

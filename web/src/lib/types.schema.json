@@ -654,6 +654,10 @@
             "$ref": "#/definitions/DistrictWins"
           },
           "description": "Above county level only: single-member districts won (final round), per winning party combination."
+        },
+        "mail": {
+          "$ref": "#/definitions/MailVotes",
+          "description": "The country only: the votes cast by mail (party lists only), which the totals above include."
         }
       },
       "required": [
@@ -861,6 +865,28 @@
       ],
       "additionalProperties": false
     },
+    "MailVotes": {
+      "type": "object",
+      "properties": {
+        "turnout": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Turnout"
+          }
+        },
+        "lists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ListResult"
+          }
+        }
+      },
+      "required": [
+        "turnout",
+        "lists"
+      ],
+      "additionalProperties": false
+    },
     "IndicatorValue": {
       "type": "object",
       "properties": {
@@ -1044,6 +1070,115 @@
         "type": "number"
       },
       "description": "One option's share (0..1) in every unit where it got votes (E: where it had a candidate)."
+    },
+    "StationFile": {
+      "type": "object",
+      "properties": {
+        "options": {
+          "type": "object",
+          "properties": {
+            "L": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "E": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "description": "The option ids (ElectionFile views) that the vote arrays of the stations refer to."
+        },
+        "stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StationRow"
+          }
+        }
+      },
+      "required": [
+        "options",
+        "stations"
+      ],
+      "additionalProperties": false,
+      "description": "Every polling station's results (votes cast by mail belong to no station)."
+    },
+    "StationRow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "\"MAZ-OEVK-TAZ-SZK\": NVI county code, electoral district, NVI settlement code, station number."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The settlement or Budapest district it is in."
+        },
+        "district": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Its electoral district."
+        },
+        "transfer": {
+          "type": "boolean",
+          "description": "A station for voters registered elsewhere (átjelentkezés)."
+        },
+        "tl": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "description": "List ballot: [registered, voted, valid, invalid] (null = unknown)."
+        },
+        "te": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "description": "Candidate ballot, the same."
+        },
+        "L": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Party-list votes, in the order of options.L."
+        },
+        "E": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "description": "Candidate votes by nominating parties: [index in options.E, votes]."
+        }
+      },
+      "required": [
+        "id",
+        "unit",
+        "district",
+        "tl",
+        "te",
+        "L",
+        "E"
+      ],
+      "additionalProperties": false
     },
     "IndicatorFile": {
       "type": "object",

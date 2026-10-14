@@ -4,6 +4,7 @@
  * shape and pick one at startup.
  */
 
+import { formatInt } from './format';
 import type { ElectionType, LineageType } from './types';
 import type { Level } from '../state';
 
@@ -72,6 +73,35 @@ export const t = {
   mapWinner: { L: 'Largest list in each area', E: 'Most single-member votes in each area' },
   mapShare: (name: string) => `${name} vote share`,
   mapTurnout: 'Turnout',
+  includePostal: 'Include postal votes',
+  goToStations: 'Go to polling station list',
+  stations: {
+    title: 'Polling stations',
+    tabStations: 'Polling stations',
+    tabHierarchy: 'Hierarchy',
+    close: 'Close',
+    search: 'Search: settlement, district, county, region, station ID… (all words must match)',
+    entireHungary: 'Entire Hungary',
+    allDistricts: 'All electoral districts',
+    allParties: 'All parties',
+    showShares: '%',
+    showVotes: 'Votes',
+    count: (shown: number, total: number) => `${formatInt(shown)} of ${formatInt(total)} polling stations`,
+    more: (n: number) => `Show more (${formatInt(n)} left)`,
+    none: 'No polling station matches.',
+    loading: 'Loading polling stations…',
+    unavailable: 'No polling-station data for this election.',
+    openHierarchy: 'Open in hierarchy',
+    columns: { id: 'Station ID', name: 'Settlement', district: 'Electoral district', registered: 'Registered', turnout: 'Turnout', other: 'Other', winner: 'Winner' },
+    station: (n: string) => `Polling station ${n}`,
+    stationKind: 'Polling station',
+    transfer: 'transfer station',
+    goUp: 'Go up',
+    below: 'Below',
+    turnoutLine: (registered: string, voted: string, share: string, valid: string, invalid: string) =>
+      `Registered ${registered} · voted ${voted} (${share}) · valid ${valid} · invalid ${invalid}`,
+    noResults: 'No results here.',
+  },
   navToggle: 'Hierarchical map navigation',
   navHint: 'Clicking an area opens it and shows the areas one level below it.',
   goUp: (name: string) => `↑ Go one up (${name})`,

@@ -16,4 +16,8 @@ export interface SidebarContext {
   state: AppState;
   select: (unitId: string) => void;
   update: (patch: Partial<AppState>) => void;
+  /** Nothing is selected: the panel shows the national results (no close button). */
+  isDefault: boolean;
+  /** The national results include votes cast by mail, which can be left out (state.postal). */
+  hasMail: boolean;
 }

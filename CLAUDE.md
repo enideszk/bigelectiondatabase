@@ -135,7 +135,7 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   behind them, `seg` toggles) follow the owner's Israel 2026 dashboard
   (`..\ilelection\dashboard\styles.css`, `il.css`, `renderDetail()` in `app.js`). Keep new UI
   consistent with it.
-- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&map=&nav=&focus=`.
+- State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&map=&nav=&focus=&postal=&list=`.
 - **Page layout** (as the Israel dashboard): a thin election bar across the top; above the map a
   toolbar with the level / election type / year table (`map/controls.ts`) on the left and search,
   the Party lists / Single-member switch and the party picker on the right; the side panel (30%) on the right.
@@ -178,6 +178,18 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   open the unit's parent; level buttons move the focus up when needed; "Go one up" (map, top
   left) returns to the parent. A scoped layer strokes its polygons (the border mesh covers the
   whole level). The legend counts winners among the shown units.
+- **Side panel**: with nothing selected it shows the national results (no close button); Escape
+  clears the selection (or closes the dialog). National party-list results include the votes cast
+  by mail, as the official totals do; "Include postal votes" (`?postal=0` = off) subtracts them
+  (`UnitElection.mail` on the country, `lib/results.ts` `withoutMail`; mail votes belong to no
+  station or settlement, so nothing else changes).
+- **Polling station dialog** (`stations/dialog.ts`, `?list=stations|hierarchy`, from the panel's
+  "Go to polling station list"): a sortable table of the stations of the selected area (or all
+  Hungary), multi-word search, electoral district filter, six leading parties + Other (all on
+  request), shares or votes, rows tinted with the winner; and a hierarchy view (station ->
+  municipality -> electoral district -> county -> region -> Hungary). Data:
+  `data/stations/{election}.json` (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's
+  own codes (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
   drop the moves in between, so the highlight trailed the cursor). Fill polygons are
   `interactive: false`, panes take no pointer events; the map reads the raw mouse position once
