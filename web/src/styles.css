@@ -284,6 +284,15 @@ input:focus-visible,
   position: relative;
 }
 
+/* Party lists | Single-member districts, as wide as the column */
+.view-switch .seg {
+  display: flex;
+}
+
+.view-switch .seg button {
+  flex: 1 1 0;
+}
+
 .search input {
   width: 100%;
   padding: 6px 10px;
@@ -901,8 +910,8 @@ input:focus-visible,
 }
 
 /* Result rows (components/resultRows.ts), after the Israel dashboard's national table: the share
-   as a translucent bar in the party color behind the row, the name cut with "…", and the share
-   with the votes under it on the right. */
+   as a translucent bar in the party color behind the row (the full row = 100%), the name cut with
+   "…", and the share with the votes under it on the right. */
 .res-rows {
   display: flex;
   flex-direction: column;

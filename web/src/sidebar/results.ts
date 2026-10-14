@@ -1,7 +1,7 @@
 /**
- * Results with the L / E toggle: party lists, or single-member races grouped by district and round
- * (above county level: districts won). The toggle also switches the map between the two. Clicking a
- * row maps that party's vote share; clicking it again goes back to the winners.
+ * Results of the view picked in the toolbar above the map (map/controls.ts): party lists, or
+ * single-member races grouped by district and round (above county level: districts won). Clicking
+ * a row maps that party's vote share; clicking it again goes back to the winners.
  */
 
 import { h } from '../components/dom';
@@ -115,21 +115,7 @@ function candidateView(ctx: SidebarContext): HTMLElement[] {
 export function renderResults(ctx: SidebarContext): HTMLElement[] {
   const view = ctx.state.view;
   return [
-    h(
-      'h4',
-      { class: 'd-h' },
-      h('span', null, t.results, h('small', null, view === 'L' ? t.viewLTitle : t.viewETitle)),
-      toggle(
-        t.aria.resultType,
-        [
-          { value: 'L', label: t.viewL, title: t.viewLTitle },
-          { value: 'E', label: t.viewE, title: t.viewETitle },
-        ],
-        view,
-        (v) => ctx.update({ view: v }),
-        true,
-      ),
-    ),
+    h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, view === 'L' ? t.viewLTitle : t.viewETitle))),
     ...(view === 'L' ? [listView(ctx)] : candidateView(ctx)),
     h('p', { class: 'd-note quiet' }, t.pickHint),
   ];

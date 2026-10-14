@@ -82,6 +82,19 @@ export function renderLegend(container: HTMLElement, legend: Legend | null): voi
   );
 }
 
+/** Party lists | Single-member districts: the result view of the map and the side panel. A view
+ *  the election does not have (no single-member races) is disabled. */
+export function renderViewSwitch(container: HTMLElement, view: ResultViewId, available: Record<ResultViewId, boolean>, onChange: (view: ResultViewId) => void): void {
+  container.replaceChildren(
+    toggle(
+      t.aria.resultType,
+      (['L', 'E'] as const).map((v) => ({ value: v, label: v === 'L' ? t.viewLTitle : t.viewETitle, disabled: !available[v] })),
+      view,
+      onChange,
+    ),
+  );
+}
+
 /** "Map: [Largest list in each area | <party> vote share ...]" below the search box. */
 export function renderPartyPicker(
   container: HTMLElement,

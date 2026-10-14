@@ -37,9 +37,7 @@ export const t = {
   validBallots: 'Valid ballot papers',
 
   results: 'Results',
-  viewL: 'L',
   viewLTitle: 'Party lists',
-  viewE: 'E',
   viewETitle: 'Single-member districts',
   round: (n: number) => `Round ${n}`,
   noListResults: 'No party-list results for this unit.',

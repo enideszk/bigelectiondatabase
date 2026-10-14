@@ -136,8 +136,8 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   consistent with it.
 - State lives in the URL (`state.ts`): `?unit=&year=&type=&view=L|E&round=&level=&party=`.
 - **Page layout** (as the Israel dashboard): a thin election bar across the top; above the map a
-  toolbar with the level / election type / year table (`map/controls.ts`) on the left and search +
-  party picker on the right; the side panel (30%) on the right.
+  toolbar with the level / election type / year table (`map/controls.ts`) on the left and search,
+  the Party lists / Single-member switch and the party picker on the right; the side panel (30%) on the right.
 - **The map is Leaflet 1.9 on canvas** (owner's choice, as in the Israel dashboard; MapLibre +
   PMTiles was dropped in Phase 2) over a darkened, half-transparent OpenStreetMap
   (tile.openstreetmap.org; `.osm-base` filter, `OSM_OPACITY`). Boundaries: GeoJSON files
@@ -157,7 +157,8 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   colors are in, so the old view stays up instead of flashing. Hover and selection outlines are
   separate polygons on their own panes/canvases (never restyle the fill for them).
 - **What the map shows** (`map/coloring.ts`): the shown result view's winners (L lists, E
-  single-member candidates by nominating parties; the side panel's L/E toggle switches both), or,
+  single-member candidates by nominating parties; the toolbar's Party lists / Single-member switch
+  sets it for the map and the side panel), or,
   with `?party=`, one option's vote share in steps (sixths of the areas + top 5%, cut per level,
   colors mixed in Lab as in the Israel dashboard). Shares come from
   `data/shares/{election}/{view}/{option}.json`, fetched when picked. Option ids are the parties'

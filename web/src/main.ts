@@ -8,7 +8,7 @@ import type { ElectionFile, IsoDate, UnitIndexEntry } from './lib/types';
 import { levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
 import { buildColoring, type Coloring } from './map/coloring';
-import { renderLegend, renderMapControl, renderPartyPicker } from './map/controls';
+import { renderLegend, renderMapControl, renderPartyPicker, renderViewSwitch } from './map/controls';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
 import { renderSidebar, renderSidebarMessage } from './sidebar/sidebar';
@@ -103,6 +103,8 @@ async function main(): Promise<void> {
       onLevel: (level) => setState({ level }),
       onElection: (e) => setState({ year: e.year, type: e.type }),
     });
+    const views = electionFile?.views;
+    renderViewSwitch(byId('view-switch'), state.view, { L: !views || !!views.L, E: !views || !!views.E }, (view) => setState({ view }));
     const picker = byId('party-picker');
     const options = electionFile?.views[state.view]?.options;
     picker.hidden = !options;

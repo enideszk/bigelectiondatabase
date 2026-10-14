@@ -1,9 +1,9 @@
 /**
  * Result rows, after the Israel dashboard's national table (hero-results): the share as a
  * translucent bar in the party color behind the row, the name (cut with "…" when too long), and on
- * the right the share with the votes under it. Bars are scaled to the leader (as there) so small
- * differences stay visible. The leading rows are shown and the rest fold into "Other", which
- * expands. A row can be picked: the map then shows that option's vote share.
+ * the right the share with the votes under it. A bar's length is the share itself (the full row =
+ * 100%). The leading rows are shown and the rest fold into "Other", which expands. A row can be
+ * picked: the map then shows that option's vote share.
  */
 
 import { formatInt, formatShare } from '../lib/format';
@@ -35,17 +35,16 @@ const expanded = new Set<string>();
 
 export function resultRows(items: ResultItem[], o: ResultRowsOptions): HTMLElement {
   const box = h('div', { class: 'res-rows' });
-  const scale = Math.max(0.25, Math.max(0, ...items.map((i) => i.share)) * 1.08);
   const fold = items.length > TOP + 1; // "Other (1)" would hide nothing worth hiding
 
   const draw = () => {
     const open = !fold || expanded.has(o.key);
-    const rows = (open ? items : items.slice(0, TOP)).map((item) => row(item, scale, o));
+    const rows = (open ? items : items.slice(0, TOP)).map((item) => row(item, o));
     if (fold && !open) {
       const rest = items.slice(TOP);
       const votes = rest.every((i) => typeof i.count === 'number') ? rest.reduce((sum, i) => sum + (i.count as number), 0) : '';
       rows.push(
-        row({ label: t.other(rest.length), color: 'var(--ink-4)', share: rest.reduce((sum, i) => sum + i.share, 0), count: votes }, scale, {
+        row({ label: t.other(rest.length), color: 'var(--ink-4)', share: rest.reduce((sum, i) => sum + i.share, 0), count: votes }, {
           ...o,
           onPick: undefined,
         }, () => {
@@ -76,10 +75,10 @@ export function resultRows(items: ResultItem[], o: ResultRowsOptions): HTMLEleme
   return box;
 }
 
-function row(item: ResultItem, scale: number, o: ResultRowsOptions, onOther?: () => void): HTMLElement {
+function row(item: ResultItem, o: ResultRowsOptions, onOther?: () => void): HTMLElement {
   const pick = onOther ?? (item.option && o.onPick ? () => o.onPick!(item.option!) : undefined);
   const picked = item.option !== undefined && item.option === o.picked;
-  const width = Math.min(100, (Math.max(0, item.share) / scale) * 100).toFixed(2);
+  const width = (Math.min(1, Math.max(0, item.share)) * 100).toFixed(2);
   return h(
     'div',
     {
