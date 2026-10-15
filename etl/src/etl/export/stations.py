@@ -6,8 +6,9 @@ One row per station:
     unit      the settlement or Budapest district it is in; district: its electoral district
     tl, te    turnout of the list / candidate ballot: [registered, voted, valid, invalid]
     L         party-list votes (round 1), in the order of the election file's L options
-    E         candidate votes by nominating parties (each district's last round at the station),
-              as [index of the E option, votes]
+    E         candidate votes (the district's last round at the station), as [index in candidates,
+              votes]; `candidates` holds each one's name and nominating parties (index of the E
+              option), so the list can name the candidates as the side panel does
 Votes cast by mail belong to no station (unit special-mail) and are not here.
 """
 
@@ -74,14 +75,19 @@ def build_station_file(conn: psycopg.Connection, ctx: ExportContext, election_id
     candidate_rows = conn.execute(CANDIDATES_SQL, params).fetchall()
     for unit_id, round_no, _, _ in candidate_rows:
         last_round[unit_id] = max(last_round.get(unit_id, 0), round_no)
+    kept = [
+        (unit_id, candidate_id, votes)
+        for unit_id, round_no, candidate_id, votes in candidate_rows
+        if round_no == last_round[unit_id]
+        and ctx.group_display(ctx.candidates[candidate_id]["party_ids"], election_id)["id"] in e_index
+    ]
+    # the candidates by district, then as loaded (ballot order)
+    candidate_ids = sorted({c for _, c, _ in kept}, key=lambda c: (ctx.candidates[c]["district_unit_id"] or "", c))
+    c_index = {c: i for i, c in enumerate(candidate_ids)}
     candidates: dict[str, dict[int, int]] = defaultdict(dict)
-    for unit_id, round_no, candidate_id, votes in candidate_rows:
-        if round_no != last_round[unit_id]:
-            continue
-        group = ctx.group_display(ctx.candidates[candidate_id]["party_ids"], election_id)["id"]
-        i = e_index.get(group)
-        if i is not None:
-            candidates[unit_id][i] = candidates[unit_id].get(i, 0) + votes
+    for unit_id, candidate_id, votes in kept:
+        i = c_index[candidate_id]
+        candidates[unit_id][i] = candidates[unit_id].get(i, 0) + votes
 
     empty = [None, None, None, None]
     rows = []
@@ -99,4 +105,14 @@ def build_station_file(conn: psycopg.Connection, ctx: ExportContext, election_id
             row["transfer"] = True
         rows.append(row)
     rows.sort(key=lambda r: r["id"])
-    return {"options": {"L": list(l_index), "E": list(e_index)}, "stations": rows}
+    return {
+        "options": {"L": list(l_index), "E": list(e_index)},
+        "candidates": [
+            {
+                "name": ctx.candidates[c]["name"],
+                "option": e_index[ctx.group_display(ctx.candidates[c]["party_ids"], election_id)["id"]],
+            }
+            for c in candidate_ids
+        ],
+        "stations": rows,
+    }

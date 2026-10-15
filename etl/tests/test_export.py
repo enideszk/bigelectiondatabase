@@ -177,3 +177,31 @@ def test_stations_add_up_to_the_settlements(exported):
             lists = _load(exported / "units" / f"{unit_id}.json")["elections"][election_id]["lists"]
             by_option = {l["option"]: l["votes"] for l in lists if l["round"] == 1}
             assert {o: v for o, v in zip(options, totals) if v} == {o: v for o, v in by_option.items() if v}, unit_id
+
+
+def test_station_candidates_add_up_to_the_settlements(exported):
+    """Every station's candidate votes, summed per settlement and nominating parties, are that
+    settlement's single-member results (each race's last round), and each candidate is named."""
+    for path in (exported / "stations").glob("*.json"):
+        stations = _load(path)
+        election_id = path.stem
+        options = stations["options"].get("E", [])
+        candidates = stations["candidates"]
+        assert all(c["name"] for c in candidates)
+        sums: dict[str, dict[str, int]] = {}
+        for row in stations["stations"]:
+            totals = sums.setdefault(row["unit"], {})
+            for i, votes in row["E"]:
+                option = options[candidates[i]["option"]]
+                totals[option] = totals.get(option, 0) + votes
+        for unit_id, totals in sums.items():
+            races = _load(exported / "units" / f"{unit_id}.json")["elections"][election_id]["races"]
+            last: dict[str, int] = {}
+            for race in races:
+                last[race["district"]["id"]] = max(last.get(race["district"]["id"], 0), race["round"])
+            by_option: dict[str, int] = {}
+            for race in races:
+                if race["round"] == last[race["district"]["id"]]:
+                    for c in race["candidates"]:
+                        by_option[c["option"]] = by_option.get(c["option"], 0) + c["votes"]
+            assert {o: v for o, v in totals.items() if v} == {o: v for o, v in by_option.items() if v}, unit_id

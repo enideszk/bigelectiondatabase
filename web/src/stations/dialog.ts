@@ -32,6 +32,7 @@ import { displayName } from '../lib/units';
 import { optionLabel } from '../map/coloring';
 import type { Hierarchy } from '../map/hierarchy';
 import { NO_DATA_COLOR } from '../map/style';
+import { partyLabel } from '../sidebar/results';
 import { turnoutBlock } from '../sidebar/turnout';
 
 const LEADING = 6;
@@ -124,6 +125,9 @@ interface Row {
 interface Data {
   key: string;
   options: ResultOption[];
+  /** View E: the candidates the stations' votes (`row.E`) refer to; `option` is the index in
+   *  `options` (-1 = not among them). */
+  candidates: { name: string; option: number }[];
   stations: Station[];
   /** Which result views the election has at all. */
   available: Record<ResultViewId, boolean>;
@@ -231,6 +235,7 @@ export class StationDialog {
     const options = view.options;
     const position = new Map(options.map((o, i) => [o.id, i]));
     const fileOptions = (file.options[ctx.view] ?? []).map((id) => position.get(id) ?? -1);
+    const candidates = ctx.view === 'E' ? file.candidates.map((c) => ({ name: c.name, option: fileOptions[c.option] ?? -1 })) : [];
     const date = ctx.election.date;
     const unitName = (id: string | null) => (id && ctx.units.has(id) ? displayName(ctx.units.get(id)!) : '');
     /** Per settlement: its county, region and country, and the words of all of them. */
@@ -238,7 +243,11 @@ export class StationDialog {
     const stations = file.stations.map((row): Station => {
       const votes = new Array<number>(options.length).fill(0);
       if (ctx.view === 'L') row.L.forEach((v, i) => fileOptions[i] >= 0 && (votes[fileOptions[i]] += v));
-      else for (const [i, v] of row.E) if (fileOptions[i] >= 0) votes[fileOptions[i]] += v;
+      else
+        for (const [i, v] of row.E) {
+          const option = candidates[i]?.option ?? -1;
+          if (option >= 0) votes[option] += v;
+        }
       const ballot = ctx.view === 'L' ? row.tl : row.te;
       const [registered, voted, valid] = ballot;
       const sum = votes.reduce((a, b) => a + b, 0);
@@ -274,7 +283,7 @@ export class StationDialog {
         winner,
       };
     });
-    this.data = { key, options, stations, available: { L: !!election.views.L, E: !!election.views.E } };
+    this.data = { key, options, candidates, stations, available: { L: !!election.views.L, E: !!election.views.E } };
     return this.data;
   }
 
@@ -833,13 +842,25 @@ export class StationDialog {
   }
 
   /** A station's results and participation in a column beside the table, as the side panel shows
-   *  them beside the map: the results boxed like the participation, at the side panel's width. */
+   *  them beside the map: the results boxed like the participation, at the side panel's width.
+   *  Party lists by name; single-member candidates by name with their nominating parties under it,
+   *  every candidate on the station's ballot. */
   private stationPanel(ctx: DialogContext, data: Data, s: Station, redraw: () => void): HTMLElement {
-    const items = data.options
-      .map((o, i) => ({ o, v: s.votes[i] }))
-      .filter((x) => x.v > 0)
-      .sort((a, b) => b.v - a.v)
-      .map(({ o, v }): ResultItem => ({ label: o.name || optionLabel(o), color: o.color, share: s.total ? v / s.total : 0, count: v }));
+    const share = (v: number) => (s.total ? v / s.total : 0);
+    const items =
+      ctx.view === 'E'
+        ? s.row.E.map(([i, v]) => ({ c: data.candidates[i], v }))
+            .filter(({ c }) => c && c.option >= 0)
+            .sort((a, b) => b.v - a.v || a.c.name.localeCompare(b.c.name, 'hu'))
+            .map(({ c, v }): ResultItem => {
+              const o = data.options[c.option];
+              return { label: c.name, sub: partyLabel(o.parties), color: o.color, share: share(v), count: v };
+            })
+        : data.options
+            .map((o, i) => ({ o, v: s.votes[i] }))
+            .filter((x) => x.v > 0)
+            .sort((a, b) => b.v - a.v)
+            .map(({ o, v }): ResultItem => ({ label: o.name || optionLabel(o), color: o.color, share: share(v), count: v }));
     const win = s.winner >= 0 ? data.options[s.winner] : null;
     const [registered, voted, valid, invalid] = ctx.view === 'L' ? s.row.tl : s.row.te;
     const block = turnoutBlock(registered ?? null, voted ?? null, valid ?? null, invalid ?? null);
@@ -874,7 +895,7 @@ export class StationDialog {
         'div',
         { class: 'sd-drawer-body', 'data-station': s.row.id },
         h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, ctx.view === 'L' ? t.viewLTitle : t.viewETitle))),
-        items.length ? h('div', { class: 'sd-card' }, resultRows(items, { key: `S:${s.row.id}` })) : h('p', { class: 'sd-note' }, t.stations.noResults),
+        items.length ? h('div', { class: 'sd-card' }, resultRows(items, { key: `S:${ctx.view}:${s.row.id}` })) : h('p', { class: 'sd-note' }, t.stations.noResults),
         h('h4', { class: 'd-h' }, t.participation),
         block ?? h('p', { class: 'sd-note' }, t.noTurnout),
       ),

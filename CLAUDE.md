@@ -212,7 +212,9 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   Single-member switch. Clicking a station (the leaf) opens its results (boxed) and participation in
   a column beside the table, at the side panel's width (over the table on a narrow window); the
   open station is kept by its ID, so the Party lists / Single-member switch keeps it open with the
-  other view's results. Data: `data/stations/{election}.json`
+  other view's results; single-member results name the candidates (party under the name), as the
+  side panel does. Data: `data/stations/{election}.json` (E votes per candidate, `candidates` =
+  name + E option)
   (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's own codes
   (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and

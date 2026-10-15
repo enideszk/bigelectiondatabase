@@ -1093,6 +1093,13 @@
           "additionalProperties": false,
           "description": "The option ids (ElectionFile views) that the vote arrays of the stations refer to."
         },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StationCandidate"
+          },
+          "description": "The single-member candidates that the stations' E votes refer to."
+        },
         "stations": {
           "type": "array",
           "items": {
@@ -1102,10 +1109,28 @@
       },
       "required": [
         "options",
+        "candidates",
         "stations"
       ],
       "additionalProperties": false,
       "description": "Every polling station's results (votes cast by mail belong to no station)."
+    },
+    "StationCandidate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "option": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "option"
+      ],
+      "additionalProperties": false,
+      "description": "A single-member candidate: the name, and the nominating parties as an index in options.E."
     },
     "StationRow": {
       "type": "object",
@@ -1166,7 +1191,7 @@
             "minItems": 2,
             "maxItems": 2
           },
-          "description": "Candidate votes by nominating parties: [index in options.E, votes]."
+          "description": "Candidate votes (the district's last round at the station): [index in candidates, votes]."
         }
       },
       "required": [

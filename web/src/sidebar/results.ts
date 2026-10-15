@@ -13,7 +13,8 @@ import { parseMapBy, partyMap } from '../map/coloring';
 import type { SidebarContext } from './context';
 import { unitLink } from './header';
 
-const partyLabel = (parties: string[]) => (parties.length ? parties.join('–') : t.independent);
+/** A candidate's nominating parties, as the line under the name. */
+export const partyLabel = (parties: string[]) => (parties.length ? parties.join('–') : t.independent);
 
 function rowOptions(ctx: SidebarContext, key: string): ResultRowsOptions {
   const by = parseMapBy(ctx.state.map);

@@ -303,7 +303,15 @@ export interface ShareFile {
 export interface StationFile {
   /** The option ids (ElectionFile views) that the vote arrays of the stations refer to. */
   options: { L?: string[]; E?: string[] };
+  /** The single-member candidates that the stations' E votes refer to. */
+  candidates: StationCandidate[];
   stations: StationRow[];
+}
+
+/** A single-member candidate: the name, and the nominating parties as an index in options.E. */
+export interface StationCandidate {
+  name: string;
+  option: number;
 }
 
 export interface StationRow {
@@ -321,7 +329,7 @@ export interface StationRow {
   te: (number | null)[];
   /** Party-list votes, in the order of options.L. */
   L: number[];
-  /** Candidate votes by nominating parties: [index in options.E, votes]. */
+  /** Candidate votes (the district's last round at the station): [index in candidates, votes]. */
   E: [number, number][];
 }
 
