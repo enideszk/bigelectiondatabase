@@ -7,8 +7,10 @@
  * "Go up" does not open another view: it aggregates the same table one level up (the stations
  * themselves are the source of every aggregate, so mail votes are not in them), widening the area
  * when the level reaches it; clicking an area row opens it (one level down); the breadcrumb climbs
- * back. Polling station rows are the leaves: clicking one opens its results and participation under
- * the row, as the side panel draws them but side by side, and clicking it again collapses them.
+ * back. Polling station rows are the leaves: clicking one opens its results and participation in a
+ * column beside the table (as the side panel sits beside the map), clicking it again closes it. The
+ * open station is kept by its ID, so it stays open when the Party lists / Single-member switch
+ * reloads the data, and shows that view's results.
  *
  * The columns: the area's name and the areas above it (station ID, settlement, electoral district…),
  * registered and turnout, the six leading parties of the shown view and "Other" (all parties on
@@ -151,9 +153,9 @@ export class StationDialog {
   private expanded = false;
   private votesMode = false;
   private limit: number = PAGE;
-  private selected: Station | null = null;
-  /** The selected station's results are open under its row. */
-  private detail = false;
+  /** The polling station whose results are open beside the table (by ID: it survives a reload
+   *  of the data for the other result view). */
+  private openId: string | null = null;
 
   /** The last pointer press landed on the backdrop itself (not inside the dialog). */
   private pressedBackdrop = false;
@@ -200,8 +202,7 @@ export class StationDialog {
       this.level = 'station';
       this.district = '';
       this.limit = PAGE;
-      this.selected = null;
-      this.detail = false;
+      this.openId = null;
     }
     if (!wasOpen) {
       this.overlay.hidden = false;
@@ -216,7 +217,7 @@ export class StationDialog {
     this.ctx = null;
     this.query = '';
     this.limit = PAGE;
-    this.detail = false;
+    this.openId = null;
   }
 
   // ---- data -------------------------------------------------------------------------------
@@ -366,7 +367,7 @@ export class StationDialog {
   private afterMove(): void {
     this.district = '';
     this.limit = PAGE;
-    this.detail = false;
+    this.openId = null;
   }
 
   // ---- rows -----------------------------------------------------------------------------------
@@ -574,26 +575,21 @@ export class StationDialog {
         { class: `${align}${best ? ' max' : ''}${edge ? ' ge' : ''}`, title: `${formatInt(votes)} · ${r.total ? formatShare(votes / r.total, 2) : '–'}` },
         this.votesMode ? formatInt(votes) : r.total ? formatShare(votes / r.total, 2) : '–',
       );
-    const columns = geo.length + 2 + partyCount + 1;
-    const body = sorted.slice(0, this.limit).flatMap((r) => {
+    const body = sorted.slice(0, this.limit).map((r) => {
       const win = r.winner >= 0 ? data.options[r.winner] : null;
-      const open = r.station !== null && r.station === this.selected && this.detail;
+      const open = r.station !== null && r.station.row.id === this.openId;
       const values = [...shown.map((i) => r.votes[i]), ...(rest.length ? [other(r)] : [])];
       const top = values.reduce((best, v, i) => (v > values[best] ? i : best), 0);
       const bold = values.length > 1 && values[top] > 0;
       const row = h(
         'tr',
         {
-          class: r.station && r.station === this.selected ? 'selected' : null,
+          class: open ? 'selected' : null,
           style: `--tint:${win?.color ?? NO_DATA_COLOR}`,
-          title: r.station ? (open ? t.stations.collapse : t.stations.expand) : t.stations.open(r.name),
+          title: r.station ? (open ? t.stations.hide : t.stations.expand) : t.stations.open(r.name),
           onclick: () => {
-            if (!r.station) {
-              this.open(r.id);
-            } else {
-              this.detail = r.station === this.selected ? !this.detail : true;
-              this.selected = r.station;
-            }
+            if (!r.station) this.open(r.id);
+            else this.openId = open ? null : r.station.row.id;
             redraw();
           },
         },
@@ -611,8 +607,7 @@ export class StationDialog {
         ...values.map((v, i) => cell(r, v, bold && i === top, i === values.length - 1)),
         h('td', { class: 'winner' }, win ? optionLabel(win) : '–'),
       );
-      if (!open || !r.station) return [row];
-      return [row, h('tr', { class: 'sd-detailrow', style: `--tint:${win?.color ?? NO_DATA_COLOR}` }, h('td', { colspan: columns }, this.stationDetail(ctx, data, r.station)))];
+      return row;
     });
 
     const search = h('input', {
@@ -816,8 +811,15 @@ export class StationDialog {
         : null,
     );
 
+    // the open station (it may be gone: another election has other stations)
+    const station = this.openId ? (data.stations.find((x) => x.row.id === this.openId) ?? null) : null;
+    if (!station) this.openId = null;
     const scroll = this.body.querySelector('.sd-tablewrap')?.scrollTop ?? 0;
-    this.body.replaceChildren(tools, table);
+    const panel = this.body.querySelector<HTMLElement>('.sd-drawer-body');
+    const panelScroll = panel && panel.dataset.station === this.openId ? panel.scrollTop : 0;
+    this.body.replaceChildren(tools, h('div', { class: 'sd-main' }, table, station ? this.stationPanel(ctx, data, station, redraw) : null));
+    const newPanel = this.body.querySelector<HTMLElement>('.sd-drawer-body');
+    if (newPanel) newPanel.scrollTop = panelScroll;
     // The second header row sticks exactly under the first: measure it instead of guessing, or
     // the table shows through the gap between them while scrolling.
     const groupRow = this.body.querySelector<HTMLElement>('.sd-groups');
@@ -830,53 +832,51 @@ export class StationDialog {
     if (wrap) wrap.scrollTop = scroll;
   }
 
-  /** A station's results and turnout under its row, as in the side panel but side by side. */
-  private stationDetail(ctx: DialogContext, data: Data, s: Station): HTMLElement {
+  /** A station's results and participation in a column beside the table, as the side panel shows
+   *  them beside the map: the results boxed like the participation, at the side panel's width. */
+  private stationPanel(ctx: DialogContext, data: Data, s: Station, redraw: () => void): HTMLElement {
     const items = data.options
       .map((o, i) => ({ o, v: s.votes[i] }))
       .filter((x) => x.v > 0)
       .sort((a, b) => b.v - a.v)
       .map(({ o, v }): ResultItem => ({ label: o.name || optionLabel(o), color: o.color, share: s.total ? v / s.total : 0, count: v }));
-    const head = h(
-      'div',
-      { class: 'sd-dhead' },
-      h(
-        'div',
-        null,
-        h('div', { class: 'sd-hname' }, t.stations.station(s.row.id)),
-        h('div', { class: 'sd-hkind' }, `${t.stations.stationKind} · ${s.name}${s.row.transfer ? ` · ${t.stations.transfer}` : ''}`),
-      ),
-      h('span', { class: 'sd-spacer' }),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn btn-ghost',
-          onclick: (e: Event) => {
-            e.stopPropagation();
-            this.detail = false;
-            this.draw(ctx, data);
-          },
-        },
-        t.stations.collapse,
-      ),
-    );
+    const win = s.winner >= 0 ? data.options[s.winner] : null;
     const [registered, voted, valid, invalid] = ctx.view === 'L' ? s.row.tl : s.row.te;
     const block = turnoutBlock(registered ?? null, voted ?? null, valid ?? null, invalid ?? null);
     return h(
-      'div',
-      { class: 'sd-detail', onclick: (e: Event) => e.stopPropagation() },
-      head,
+      'aside',
+      { class: 'sd-drawer', style: `--tint:${win?.color ?? NO_DATA_COLOR}`, 'aria-label': t.stations.station(s.row.id) },
       h(
-        'div',
-        { class: 'sd-panes' },
+        'header',
+        { class: 'sd-drawer-head' },
         h(
           'div',
-          { class: 'sd-pane' },
-          h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, ctx.view === 'L' ? t.viewLTitle : t.viewETitle))),
-          items.length ? resultRows(items, { key: `S:${s.row.id}` }) : h('p', { class: 'sd-note' }, t.stations.noResults),
+          { class: 'sd-drawer-title' },
+          h('div', { class: 'sd-hname' }, t.stations.station(s.row.id)),
+          h('div', { class: 'sd-hkind' }, [s.name, s.districtName, s.row.transfer ? t.stations.transfer : ''].filter(Boolean).join(' · ')),
         ),
-        h('div', { class: 'sd-pane sd-pane-t' }, h('h4', { class: 'd-h' }, t.participation), block ?? h('p', { class: 'sd-note' }, t.noTurnout)),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-ghost btn-close',
+            title: t.stations.hide,
+            'aria-label': t.stations.hide,
+            onclick: () => {
+              this.openId = null;
+              redraw();
+            },
+          },
+          '×',
+        ),
+      ),
+      h(
+        'div',
+        { class: 'sd-drawer-body', 'data-station': s.row.id },
+        h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, ctx.view === 'L' ? t.viewLTitle : t.viewETitle))),
+        items.length ? h('div', { class: 'sd-card' }, resultRows(items, { key: `S:${s.row.id}` })) : h('p', { class: 'sd-note' }, t.stations.noResults),
+        h('h4', { class: 'd-h' }, t.participation),
+        block ?? h('p', { class: 'sd-note' }, t.noTurnout),
       ),
     );
   }

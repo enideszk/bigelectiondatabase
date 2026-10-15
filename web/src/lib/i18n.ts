@@ -111,7 +111,7 @@ export const t = {
       country: 'areas',
     },
     expand: 'Show the results of this polling station',
-    collapse: 'Collapse',
+    hide: 'Close the results of this polling station',
     open: (name: string) => `Open ${name}`,
     transferShort: 'T',
     station: (n: string) => `Polling station ${n}`,

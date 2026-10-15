@@ -206,8 +206,10 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   brighter rule, the second row's sticky `top` measured in JS so no gap shows while scrolling), a
   grey "-T" after the ID of a transfer station, multi-word search over the row's names (not the
   járás: "Székesfeh" then matched Polgárdi), an electoral district filter and the Party lists /
-  Single-member switch. Clicking a station (the leaf) opens its results and participation under the
-  row, the side panel's blocks side by side. Data: `data/stations/{election}.json`
+  Single-member switch. Clicking a station (the leaf) opens its results (boxed) and participation in
+  a column beside the table, at the side panel's width (over the table on a narrow window); the
+  open station is kept by its ID, so the Party lists / Single-member switch keeps it open with the
+  other view's results. Data: `data/stations/{election}.json`
   (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's own codes
   (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
