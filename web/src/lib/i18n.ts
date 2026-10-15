@@ -123,7 +123,7 @@ export const t = {
     goBack: 'Go back',
     upTo: (what: string) => `One level up: all the ${what} around`,
     downTo: (what: string) => `One level down: every one of the ${what} here`,
-    backToStations: 'Back to the polling stations of this area',
+    backToStations: 'Back to the polling stations of all Hungary',
     noResults: 'No results here.',
   },
   navToggle: 'Hierarchical map navigation',

@@ -339,8 +339,9 @@ export class StationDialog {
     this.afterMove();
   }
 
-  /** All the way down: the polling stations of the area shown. */
-  private goBack(): void {
+  /** All the way back: the polling stations of the whole country. */
+  private goBack(ctx: DialogContext): void {
+    this.scope = this.countryId(ctx);
     this.level = 'station';
     this.afterMove();
   }
@@ -719,10 +720,10 @@ export class StationDialog {
             {
               type: 'button',
               class: 'btn',
-              disabled: this.level === 'station',
+              disabled: this.level === 'station' && this.scope === this.countryId(ctx),
               title: t.stations.backToStations,
               onclick: () => {
-                this.goBack();
+                this.goBack(ctx);
                 redraw();
               },
             },

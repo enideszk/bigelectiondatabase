@@ -9,7 +9,7 @@ import { displayName, levelOfType, validOn } from './lib/units';
 import { cardContent } from './map/card';
 import { buildColoring, legendFor, type Coloring } from './map/coloring';
 import { renderLegend, renderMapControl, renderMapPicker, renderNavToggle, renderViewSwitch } from './map/controls';
-import { Hierarchy, TOP_LEVEL } from './map/hierarchy';
+import { DEPTH, Hierarchy, TOP_LEVEL } from './map/hierarchy';
 import { StationDialog } from './stations/dialog';
 import { ElectionMap } from './map/map';
 import { createSearch } from './sidebar/search';
@@ -55,6 +55,15 @@ async function main(): Promise<void> {
     let focus = state.nav ? state.focus : null;
     while (focus !== null && !(units.has(focus) && validOn(units.get(focus)!, viewDate(state)))) focus = hierarchy.parent(focus, viewDate(state));
     return focus;
+  };
+  /**
+   * The area the map is cut down to and zooms into: only a county or something inside it. Opening
+   * a large region or a region only switches the level (owner's choice), so the whole country
+   * stays on screen with all of its regions or counties.
+   */
+  const scopeOf = (focus: string | null): string | null => {
+    const level = focus === null ? null : hierarchy.levelOf(focus);
+    return level && DEPTH[level] >= DEPTH.county ? focus : null;
   };
   /** The units the map draws (null = all of the level). */
   let members: Set<string> | null = null;
@@ -230,9 +239,10 @@ async function main(): Promise<void> {
     if (!previous || previous.level !== state.level) void map.setLevel(state.level);
     const focus = focusOf(state);
     if (!previous || electionChanged || previous.level !== state.level || previous.nav !== state.nav || previous.focus !== state.focus) {
-      members = state.nav ? hierarchy.members(focus, state.level, viewDate(state)) : null;
-      const focusLevel = focus ? hierarchy.levelOf(focus) : null;
-      void map.setScope({ members, focus: focus && focusLevel ? { level: focusLevel, id: focus } : null });
+      const scope = state.nav ? scopeOf(focus) : null;
+      members = state.nav ? hierarchy.members(scope, state.level, viewDate(state)) : null;
+      const scopeLevel = scope ? hierarchy.levelOf(scope) : null;
+      void map.setScope({ members, focus: scope && scopeLevel ? { level: scopeLevel, id: scope } : null });
     }
     // An area that did not exist on this date: keep the URL in step with the one shown.
     if (state.nav && focus !== state.focus) queueMicrotask(() => setState({ focus }));
