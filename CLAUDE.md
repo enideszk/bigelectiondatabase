@@ -187,18 +187,23 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   by mail, as the official totals do; "Include postal votes" (`?postal=0` = off) subtracts them
   (`UnitElection.mail` on the country, `lib/results.ts` `withoutMail`; mail votes belong to no
   station or settlement, so nothing else changes).
-- **Polling station dialog** (`stations/dialog.ts`, `?list=stations|hierarchy`, from the panel's
-  "Go to polling station list"): a sortable table of the stations of the selected area (or all
-  Hungary), multi-word search (settlement, electoral district, county, region, station ID — not
-  the járás: "Székesfeh" then matched Polgárdi), electoral district filter, six leading parties +
-  Other (all on request), shares (centered, two decimals, all party columns the same width) or
-  votes, rows tinted with the winner, a two-row header grouping the columns, and a grey "-T" after
-  the ID of a transfer station. Clicking a station opens its results and participation under the
-  row (the side panel's blocks, side by side); "Go up" leaves the table for the hierarchy view
-  (station -> municipality -> electoral district -> county -> region -> Hungary), which comes back
-  with "Polling station list" — then listing the stations of the area it stood on. Data:
-  `data/stations/{election}.json` (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's
-  own codes (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
+- **Polling station dialog** (`stations/dialog.ts`, `?list=`, from the panel's "Go to polling
+  station list"): **one** sortable table, which shows any level of
+  Hungary -> region -> county -> electoral district -> settlement -> polling station. "Go up"
+  aggregates the same table one level up (and widens the area when the level reaches it), a click
+  on an area row opens it one level down, the breadcrumb climbs back; every aggregate is summed
+  from the stations themselves (so no mail votes, and no per-unit fetches). Columns: the row's name
+  and the areas above it (electoral districts uppercase), registered, turnout, the six leading
+  parties + Other (all on request) as shares (centered, two decimals, equal widths, the largest of
+  a row in bold) or votes, and the winner as text; rows tinted with the winner, a two-row header
+  (geographical data | electoral register data | party votes | result, the categories divided by a
+  brighter rule, the second row's sticky `top` measured in JS so no gap shows while scrolling), a
+  grey "-T" after the ID of a transfer station, multi-word search over the row's names (not the
+  járás: "Székesfeh" then matched Polgárdi), an electoral district filter and the Party lists /
+  Single-member switch. Clicking a station (the leaf) opens its results and participation under the
+  row, the side panel's blocks side by side. Data: `data/stations/{election}.json`
+  (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's own codes
+  (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
   drop the moves in between, so the highlight trailed the cursor). Fill polygons are
   `interactive: false`, panes take no pointer events; the map reads the raw mouse position once

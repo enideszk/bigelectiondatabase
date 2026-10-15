@@ -1207,8 +1207,8 @@ input:focus-visible,
 .sd-dialog {
   display: flex;
   flex-direction: column;
-  width: min(1320px, 100%);
-  height: min(920px, 100%);
+  width: min(1480px, 100%);
+  height: min(940px, 100%);
   background: var(--surface-1);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
@@ -1313,6 +1313,12 @@ input:focus-visible,
   border-right: 0;
 }
 
+/* the rule between two categories of the header is brighter than the ones inside a category */
+.sd-stations th.ge,
+.sd-stations td.ge {
+  border-right: 1px solid var(--ink-4);
+}
+
 .sd-table thead th {
   position: sticky;
   z-index: 1;
@@ -1331,7 +1337,8 @@ input:focus-visible,
   color: var(--ink-2);
 }
 
-.sd-table thead tr:not(.sd-groups) th {
+/* the exact offset is measured and set in dialog.ts (a wrong guess leaves a see-through gap) */
+.sd-table thead tr.sd-cols th {
   top: 23px;
 }
 
@@ -1410,6 +1417,16 @@ input:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 
+/* the largest of a row's party columns */
+.sd-table td.max {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sd-table .caps {
+  text-transform: uppercase;
+}
+
 /* "-T": a transfer station (voters registered elsewhere) */
 .sd-transfer {
   color: var(--ink-4);
@@ -1474,32 +1491,15 @@ input:focus-visible,
   margin-top: 0;
 }
 
-/* hierarchy tab */
-.sd-hier {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 4px;
-}
-
-.sd-hier > * {
-  flex: none;
-}
-
-.sd-hier .sd-tablewrap {
-  max-width: 820px;
-}
-
-.sd-hier .sd-panes {
-  max-width: 980px;
-}
-
+/* Hungary > region > county > OEVK > settlement: the area the table is inside */
 .sd-crumbs {
   font-size: 12px;
   color: var(--ink-3);
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sd-crumbs .d-link:disabled {
@@ -1508,14 +1508,8 @@ input:focus-visible,
   text-decoration: none;
 }
 
-.sd-hhead {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .sd-hname {
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 680;
   letter-spacing: -0.01em;
 }
@@ -1527,13 +1521,6 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
-.sd-children td:first-child {
-  width: 34%;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ---- narrow screens: the toolbar wraps; on a phone the side panel goes below ------------ */
 

@@ -25,7 +25,7 @@ export function renderSidebar(container: HTMLElement, given: Omit<SidebarContext
   else if (!ctx.results) body.push(h('p', { class: 'd-note' }, t.noDataForElection));
   else {
     body.push(...renderResults(ctx), ...renderTurnout(ctx));
-    body.push(h('button', { type: 'button', class: 'btn d-stations', onclick: () => ctx.update({ list: 'stations' }) }, t.goToStations));
+    body.push(h('button', { type: 'button', class: 'btn d-stations', onclick: () => ctx.update({ list: true }) }, t.goToStations));
   }
   body.push(...renderIndicators(ctx));
   const scroll = container.querySelector('.side-body')?.scrollTop ?? 0;

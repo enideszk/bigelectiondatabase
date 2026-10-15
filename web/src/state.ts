@@ -27,11 +27,9 @@ export interface AppState {
   focus: string | null;
   /** National results with the votes cast by mail (as the official totals); off = without them. */
   postal: boolean;
-  /** The polling station dialog, open on this tab (null = closed). */
-  list: ListTab | null;
+  /** The polling station dialog is open (its own level and area live inside it). */
+  list: boolean;
 }
-
-export type ListTab = 'stations' | 'hierarchy';
 
 type Listener = (state: AppState, previous: AppState) => void;
 
@@ -92,7 +90,7 @@ function fromUrl(): AppState {
     nav: p.get('nav') === '1',
     focus: p.get('nav') === '1' ? p.get('focus') || null : null,
     postal: p.get('postal') !== '0',
-    list: p.get('list') === 'stations' || p.get('list') === 'hierarchy' ? (p.get('list') as ListTab) : null,
+    list: p.get('list') !== null && p.get('list') !== '' && p.get('list') !== '0',
   });
 }
 
@@ -117,6 +115,6 @@ function toUrl(s: AppState): string {
   if (s.nav) p.set('nav', '1');
   if (s.nav && s.focus) p.set('focus', s.focus);
   if (!s.postal) p.set('postal', '0');
-  if (s.list) p.set('list', s.list);
+  if (s.list) p.set('list', 'stations');
   return `?${p.toString()}`;
 }

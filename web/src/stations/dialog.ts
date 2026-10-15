@@ -1,58 +1,82 @@
 /**
- * The polling station dialog (from the side panel; ?list=stations|hierarchy), a modal over a
- * darkened page with two views of one and the same thing — no tabs, you walk between them:
+ * The polling station dialog (from the side panel; `?list=`): one table over a darkened page, which
+ * shows the results at any level of the hierarchy the owner picked —
  *
- *   Polling stations  the stations of the area selected in the side panel (or of all Hungary) in a
- *                     sortable table with a two-row header (geographical data | electoral register
- *                     data | party votes | result): ID (MAZ-OEVK-TAZ-SZK, with a grey "-T" for a
- *                     transfer station), settlement, electoral district, registered, turnout, the
- *                     six leading parties of the shown view and "Other" (all parties on request),
- *                     as shares or votes, and the winner; each row tinted with the winner's color.
- *                     The search matches every word anywhere (settlement, county, region,
- *                     electoral district, station ID): "Szék 49" finds the stations matching both.
- *                     An electoral district filter works on top of the area. Clicking a station
- *                     opens its results and turnout under the row (as in the side panel, side by
- *                     side); clicking it again collapses them. "Go up" leaves for the hierarchy.
- *   Hierarchy         one area at a time: polling station -> municipality -> electoral district ->
- *                     county -> region -> Hungary. Its results and turnout, and the areas below it
- *                     (a row opens one); "Go up" climbs, "Polling station list" comes back to the
- *                     table with that area's stations.
+ *     Hungary -> region -> county -> electoral district (OEVK) -> settlement -> polling station
+ *
+ * "Go up" does not open another view: it aggregates the same table one level up (the stations
+ * themselves are the source of every aggregate, so mail votes are not in them), widening the area
+ * when the level reaches it; clicking an area row opens it (one level down); the breadcrumb climbs
+ * back. Polling station rows are the leaves: clicking one opens its results and participation under
+ * the row, as the side panel draws them but side by side, and clicking it again collapses them.
+ *
+ * The columns: the area's name and the areas above it (station ID, settlement, electoral district…),
+ * registered and turnout, the six leading parties of the shown view and "Other" (all parties on
+ * request) as shares or votes with the largest in bold, and the winner. The header has two rows,
+ * the second one sticking exactly under the first (the categories: geographical data | electoral
+ * register data | party votes | result, separated by a brighter rule). Rows are tinted with the
+ * winner's color, the search matches every word anywhere in a row's names, and the electoral
+ * district filter works on top of the area.
  */
 
 import { h } from '../components/dom';
 import { resultRows, type ResultItem } from '../components/resultRows';
 import { toggle } from '../components/toggle';
-import { loadElection, loadStations, loadUnit } from '../lib/api';
+import { loadElection, loadStations } from '../lib/api';
 import { formatInt, formatShare, normalizeForSearch } from '../lib/format';
 import { t } from '../lib/i18n';
-import { optionVotes, withoutMail } from '../lib/results';
-import type { ElectionMeta, MapLevel, Meta, ResultOption, ResultViewId, StationRow, UnitIndexEntry, UnitSummary } from '../lib/types';
+import type { ElectionMeta, ResultOption, ResultViewId, StationRow, UnitIndexEntry, UnitType } from '../lib/types';
 import { displayName } from '../lib/units';
-import { turnoutBlock } from '../sidebar/turnout';
 import { optionLabel } from '../map/coloring';
 import type { Hierarchy } from '../map/hierarchy';
 import { NO_DATA_COLOR } from '../map/style';
-import type { ListTab } from '../state';
+import { turnoutBlock } from '../sidebar/turnout';
 
 const LEADING = 6;
 const PAGE = 300;
 
-/** Column widths of the station table (px); the party columns all get `PARTY_W`. */
-const W = { id: 100, name: 170, district: 140, registered: 82, turnout: 78, winner: 144 };
+/** Column widths (px); every party column gets `PARTY_W`, so they are all the same. */
+const W = { id: 140, name: 160, district: 150, county: 140, region: 160, registered: 92, turnout: 82, winner: 150 };
 const PARTY_W = 76;
 
+/** The levels the table can show, widest first. */
+type Level = 'country' | 'nuts2' | 'county' | 'smd' | 'settlement' | 'station';
+const CHAIN: Level[] = ['country', 'nuts2', 'county', 'smd', 'settlement', 'station'];
+/** The unit type an area of each rank has (the rank is the index in CHAIN). */
+const TYPE_AT: Record<number, UnitType> = { 0: 'country', 1: 'nuts2', 2: 'county', 3: 'smd' };
+
+/**
+ * Where a unit type sits on the chain. The járások and the large regions have no level of their
+ * own (the owner's choice for map navigation); as an area they behave like the level above them.
+ */
+function unitRank(type: UnitType | undefined): number {
+  switch (type) {
+    case 'country':
+    case 'nuts1':
+      return 0;
+    case 'nuts2':
+      return 1;
+    case 'county':
+    case 'jaras':
+      return 2;
+    case 'smd':
+      return 3;
+    case 'settlement':
+    case 'bp_district':
+      return 4;
+    default:
+      return 5;
+  }
+}
+
 export interface DialogContext {
-  meta: Meta;
   units: Map<string, UnitIndexEntry>;
   hierarchy: Hierarchy;
   election: ElectionMeta;
   view: ResultViewId;
-  /** The area selected in the side panel (the country when none is). */
+  /** The area selected in the side panel (the country when none is); where the table starts. */
   area: string;
-  /** National results with the votes cast by mail. */
-  postal: boolean;
-  tab: ListTab;
-  onTab: (tab: ListTab) => void;
+  onView: (view: ResultViewId) => void;
   onClose: () => void;
 }
 
@@ -62,6 +86,10 @@ interface Station {
   name: string;
   districtName: string;
   search: string;
+  /** Its county, region and country: the keys it is aggregated under. */
+  county: string | null;
+  region: string | null;
+  country: string | null;
   registered: number | null;
   voted: number | null;
   turnout: number | null;
@@ -72,16 +100,41 @@ interface Station {
   winner: number;
 }
 
+/** One line of the table: a polling station, or an area with its stations added up. */
+interface Row {
+  id: string;
+  /** Set on polling station rows only (the leaves). */
+  station: Station | null;
+  /** The row's own name, then the areas above it (as many as the level has). */
+  name: string;
+  parent: string;
+  grand: string;
+  transfer: boolean;
+  registered: number | null;
+  voted: number | null;
+  turnout: number | null;
+  votes: number[];
+  total: number;
+  winner: number;
+  search: string;
+}
+
 interface Data {
   key: string;
   options: ResultOption[];
   stations: Station[];
-  /** The election file's summaries of the view: the winners of the areas in the hierarchy. */
-  summaries: Record<string, UnitSummary>;
+  /** Which result views the election has at all. */
+  available: Record<ResultViewId, boolean>;
 }
 
-type Node = { kind: 'unit'; id: string } | { kind: 'station'; station: Station };
-type SortKey = 'id' | 'name' | 'district' | 'registered' | 'turnout' | 'other' | 'winner' | `option:${number}`;
+type SortKey = 'name' | 'parent' | 'grand' | 'registered' | 'turnout' | 'other' | 'winner' | `option:${number}`;
+
+interface GeoColumn {
+  key: SortKey;
+  label: string;
+  width: number;
+  cls: string;
+}
 
 export class StationDialog {
   private readonly overlay: HTMLElement;
@@ -89,21 +142,18 @@ export class StationDialog {
   private ctx: DialogContext | null = null;
   private data: Data | null = null;
 
-  // polling stations tab
-  private all = false;
+  /** The area the table is inside, and what its rows are. */
+  private scope = '';
+  private level: Level = 'station';
   private district = '';
   private query = '';
-  private sort: { key: SortKey; dir: 1 | -1 } = { key: 'id', dir: 1 };
+  private sort: { key: SortKey; dir: 1 | -1 } = { key: 'name', dir: 1 };
   private expanded = false;
   private votesMode = false;
   private limit: number = PAGE;
   private selected: Station | null = null;
   /** The selected station's results are open under its row. */
   private detail = false;
-  /** The area the table lists, when the hierarchy moved it away from the side panel's. */
-  private scope: string | null = null;
-  // hierarchy tab
-  private path: Node[] = [];
 
   constructor() {
     this.body = h('div', { class: 'sd-body' });
@@ -128,19 +178,16 @@ export class StationDialog {
     const previous = this.ctx;
     this.ctx = ctx;
     if (!wasOpen || previous?.area !== ctx.area) {
-      this.all = false;
+      this.scope = ctx.area;
+      this.level = 'station';
       this.district = '';
       this.limit = PAGE;
-      this.scope = null;
       this.selected = null;
       this.detail = false;
     }
     if (!wasOpen) {
       this.overlay.hidden = false;
       document.body.classList.add('modal-open');
-    }
-    if (ctx.tab === 'hierarchy' && (!wasOpen || previous?.tab !== 'hierarchy' || previous.area !== ctx.area || previous.election.id !== ctx.election.id)) {
-      this.path = [];
     }
     void this.render();
   }
@@ -163,8 +210,9 @@ export class StationDialog {
     const position = new Map(options.map((o, i) => [o.id, i]));
     const fileOptions = (file.options[ctx.view] ?? []).map((id) => position.get(id) ?? -1);
     const date = ctx.election.date;
-    const names = new Map<string, string>(); // unit -> search words of its area
     const unitName = (id: string | null) => (id && ctx.units.has(id) ? displayName(ctx.units.get(id)!) : '');
+    /** Per settlement: its county, region and country, and the words of all of them. */
+    const above = new Map<string, { county: string | null; region: string | null; country: string | null; words: string }>();
     const stations = file.stations.map((row): Station => {
       const votes = new Array<number>(options.length).fill(0);
       if (ctx.view === 'L') row.L.forEach((v, i) => fileOptions[i] >= 0 && (votes[fileOptions[i]] += v));
@@ -175,28 +223,27 @@ export class StationDialog {
       const total = ctx.view === 'L' && valid ? valid : sum;
       let winner = -1;
       votes.forEach((v, i) => v > 0 && (winner < 0 || v > votes[winner]) && (winner = i));
-      if (!names.has(row.unit)) {
-        // County and region only: the járás would make a settlement match the name of the town the
-        // járás is named after (searching "Székesfehér" found Polgárdi and Nádasdladány).
-        names.set(
-          row.unit,
-          ctx.hierarchy
-            .ancestors(row.unit, date)
-            .filter((id) => {
-              const type = ctx.units.get(id)?.type;
-              return type === 'county' || type === 'nuts1' || type === 'nuts2';
-            })
-            .map(unitName)
-            .join(' '),
-        );
+      if (!above.has(row.unit)) {
+        // The county and the region only: the járás would make a settlement match the name of the
+        // town its járás is named after (searching "Székesfehér" found Polgárdi and Nádasdladány).
+        const ancestors = ctx.hierarchy.ancestors(row.unit, date);
+        const ofType = (type: UnitType) => ancestors.find((id) => ctx.units.get(id)?.type === type) ?? null;
+        const county = ofType('county');
+        const region = ofType('nuts2');
+        const country = ofType('country') ?? [...ctx.units.values()].find((u) => u.type === 'country')?.id ?? null;
+        above.set(row.unit, { county, region, country, words: `${unitName(county)} ${unitName(region)}` });
       }
+      const up = above.get(row.unit)!;
       const name = unitName(row.unit);
       const districtName = unitName(row.district);
       return {
         row,
         name,
         districtName,
-        search: normalizeForSearch(`${row.id} ${row.id.replaceAll('-', ' ')} ${name} ${districtName} ${names.get(row.unit)} ${row.transfer ? t.stations.transfer : ''}`),
+        search: normalizeForSearch(`${row.id} ${row.id.replaceAll('-', ' ')} ${name} ${districtName} ${up.words} ${row.transfer ? t.stations.transfer : ''}`),
+        county: up.county,
+        region: up.region,
+        country: up.country,
         registered,
         voted,
         turnout: registered && voted !== null ? voted / registered : null,
@@ -205,7 +252,7 @@ export class StationDialog {
         winner,
       };
     });
-    this.data = { key, options, stations, summaries: view.summaries };
+    this.data = { key, options, stations, available: { L: !!election.views.L, E: !!election.views.E } };
     return this.data;
   }
 
@@ -219,78 +266,251 @@ export class StationDialog {
       this.body.replaceChildren(h('p', { class: 'sd-note' }, t.stations.unavailable));
       return;
     }
-    if (ctx.tab === 'stations') this.renderStations(ctx, data);
-    else await this.renderHierarchy(ctx, data);
+    this.draw(ctx, data);
   }
 
-  // ---- polling stations tab --------------------------------------------------------------------
+  // ---- the hierarchy the table walks ----------------------------------------------------------
 
-  /** The area the table lists: the one the hierarchy left for, else the side panel's. */
-  private scopeUnit(ctx: DialogContext): UnitIndexEntry | undefined {
-    const id = this.scope && ctx.units.has(this.scope) ? this.scope : ctx.area;
-    return ctx.units.get(id);
+  private countryId(ctx: DialogContext): string {
+    return [...ctx.units.values()].find((u) => u.type === 'country')?.id ?? ctx.area;
   }
 
-  /** Stations of the scope area (or all), then of the chosen electoral district. */
-  private scoped(ctx: DialogContext, data: Data): Station[] {
-    const area = this.scopeUnit(ctx);
-    let list = data.stations;
-    if (!this.all && area && area.type !== 'country') {
-      const date = ctx.election.date;
-      list =
-        area.type === 'smd'
-          ? list.filter((s) => s.row.district === area.id)
-          : area.type === 'settlement' || area.type === 'bp_district'
-            ? list.filter((s) => s.row.unit === area.id)
-            : list.filter((s) => s.row.unit === area.id || ctx.hierarchy.ancestors(s.row.unit, date).includes(area.id));
+  /** The area of `rank` that contains `unitId` (or the nearest one above it). */
+  private areaAtRank(ctx: DialogContext, unitId: string, rank: number): string {
+    const ancestors = ctx.hierarchy.ancestors(unitId, ctx.election.date);
+    for (let r = rank; r > 0; r--) {
+      const found = ancestors.find((id) => ctx.units.get(id)?.type === TYPE_AT[r]);
+      if (found) return found;
     }
-    return list;
+    return this.countryId(ctx);
   }
 
-  /** Leave the table for the hierarchy, at the area above the stations on the list. */
+  /** The areas from Hungary down to the scope, for the breadcrumb: one per level of the chain. */
+  private crumbIds(ctx: DialogContext): string[] {
+    const ancestors = ctx.hierarchy.ancestors(this.scope, ctx.election.date);
+    const ids = [this.countryId(ctx)];
+    for (let r = 1; r < unitRank(ctx.units.get(this.scope)?.type); r++) {
+      // the first one only: a city split between two electoral districts lies in both
+      const found = ancestors.find((id) => ctx.units.get(id)?.type === TYPE_AT[r]);
+      if (found) ids.push(found);
+    }
+    ids.push(this.scope);
+    return [...new Set(ids)].filter((id) => ctx.units.has(id));
+  }
+
+  /** One level up: the same table aggregated, in a wider area when the level reaches this one. */
   private goUp(ctx: DialogContext): void {
-    const above = this.selected ? this.pathTo(ctx, this.selected.row.unit, this.selected.row.district) : this.pathTo(ctx, this.scopeUnit(ctx)?.id ?? ctx.area);
-    this.path = above;
-    ctx.onTab('hierarchy');
+    const rank = CHAIN.indexOf(this.level);
+    if (rank <= 0) return;
+    const next = CHAIN[rank - 1];
+    const want = rank - 2; // the area holding `next` rows sits one rank above them
+    if (want < 0) this.scope = this.countryId(ctx);
+    else if (unitRank(ctx.units.get(this.scope)?.type) > want) this.scope = this.areaAtRank(ctx, this.scope, want);
+    this.level = next;
+    this.afterMove();
   }
 
-  private renderStations(ctx: DialogContext, data: Data): void {
-    const inArea = this.scoped(ctx, data);
-    const area = this.scopeUnit(ctx);
-    const districts = [...new Map(inArea.filter((s) => s.row.district).map((s) => [s.row.district!, s.districtName])).entries()].sort((a, b) =>
+  /** Open an area row: its own units one level down. */
+  private open(unitId: string): void {
+    const rank = CHAIN.indexOf(this.level);
+    if (rank >= CHAIN.length - 1) return;
+    this.scope = unitId;
+    this.level = CHAIN[rank + 1];
+    this.afterMove();
+  }
+
+  /** A breadcrumb jump: the same level in a wider area, or that area's own units. */
+  private jump(ctx: DialogContext, unitId: string): void {
+    this.scope = unitId;
+    const rank = unitRank(ctx.units.get(unitId)?.type);
+    if (CHAIN.indexOf(this.level) <= rank) this.level = CHAIN[Math.min(rank + 1, CHAIN.length - 1)];
+    this.afterMove();
+  }
+
+  private afterMove(): void {
+    this.district = '';
+    this.limit = PAGE;
+    this.detail = false;
+  }
+
+  // ---- rows -----------------------------------------------------------------------------------
+
+  /** The stations inside the scope area (every aggregate is built from these). */
+  private inScope(ctx: DialogContext, data: Data): Station[] {
+    const area = ctx.units.get(this.scope);
+    if (!area || area.type === 'country') return data.stations;
+    const date = ctx.election.date;
+    if (area.type === 'smd') return data.stations.filter((s) => s.row.district === area.id);
+    if (area.type === 'settlement' || area.type === 'bp_district') return data.stations.filter((s) => s.row.unit === area.id);
+    return data.stations.filter((s) => s.row.unit === area.id || ctx.hierarchy.ancestors(s.row.unit, date).includes(area.id));
+  }
+
+  /** What a station is aggregated under at `level`, and the areas shown beside it. */
+  private keysOf(s: Station, level: Level): { key: string | null; parent: string | null; grand: string | null } {
+    switch (level) {
+      case 'settlement':
+        return { key: s.row.unit, parent: s.row.district, grand: s.county };
+      case 'smd':
+        return { key: s.row.district, parent: s.county, grand: s.region };
+      case 'county':
+        return { key: s.county, parent: s.region, grand: null };
+      case 'nuts2':
+        return { key: s.region, parent: null, grand: null };
+      default:
+        return { key: s.country, parent: null, grand: null };
+    }
+  }
+
+  private buildRows(ctx: DialogContext, data: Data, stations: Station[]): Row[] {
+    if (this.level === 'station') {
+      return stations.map((s) => ({
+        id: s.row.id,
+        station: s,
+        name: s.row.id,
+        parent: s.name,
+        grand: s.districtName,
+        transfer: !!s.row.transfer,
+        registered: s.registered,
+        voted: s.voted,
+        turnout: s.turnout,
+        votes: s.votes,
+        total: s.total,
+        winner: s.winner,
+        search: s.search,
+      }));
+    }
+    const level = this.level;
+    interface Group {
+      parents: Set<string>;
+      grands: Set<string>;
+      registered: number | null;
+      voted: number | null;
+      votes: number[];
+      total: number;
+    }
+    const groups = new Map<string, Group>();
+    for (const s of stations) {
+      const { key, parent, grand } = this.keysOf(s, level);
+      if (!key) continue;
+      let g = groups.get(key);
+      if (!g) {
+        g = { parents: new Set(), grands: new Set(), registered: null, voted: null, votes: new Array<number>(data.options.length).fill(0), total: 0 };
+        groups.set(key, g);
+      }
+      if (parent) g.parents.add(parent);
+      if (grand) g.grands.add(grand);
+      if (s.registered !== null) g.registered = (g.registered ?? 0) + s.registered;
+      if (s.voted !== null) g.voted = (g.voted ?? 0) + s.voted;
+      for (let i = 0; i < g.votes.length; i++) g.votes[i] += s.votes[i];
+      g.total += s.total;
+    }
+    const nameOf = (id: string) => (ctx.units.has(id) ? displayName(ctx.units.get(id)!) : id);
+    const joinNames = (ids: Set<string>) =>
+      [...ids]
+        .map(nameOf)
+        .sort((a, b) => a.localeCompare(b, 'hu', { numeric: true }))
+        .join(', ');
+    return [...groups.entries()].map(([id, g]): Row => {
+      let winner = -1;
+      g.votes.forEach((v, i) => v > 0 && (winner < 0 || v > g.votes[winner]) && (winner = i));
+      const name = nameOf(id);
+      const parent = joinNames(g.parents);
+      const grand = joinNames(g.grands);
+      return {
+        id,
+        station: null,
+        name,
+        parent,
+        grand,
+        transfer: false,
+        registered: g.registered,
+        voted: g.voted,
+        turnout: g.registered && g.voted !== null ? g.voted / g.registered : null,
+        votes: g.votes,
+        total: g.total,
+        winner,
+        search: normalizeForSearch(`${name} ${parent} ${grand}`),
+      };
+    });
+  }
+
+  /** The geographical columns of the shown level: the row's own name, then the areas above it. */
+  private geoColumns(): GeoColumn[] {
+    const c = t.stations.columns;
+    switch (this.level) {
+      case 'station':
+        return [
+          { key: 'name', label: c.id, width: W.id, cls: 'mono' },
+          { key: 'parent', label: c.name, width: W.name, cls: '' },
+          { key: 'grand', label: c.district, width: W.district, cls: 'caps' },
+        ];
+      case 'settlement':
+        return [
+          { key: 'name', label: c.name, width: W.name, cls: '' },
+          { key: 'parent', label: c.district, width: W.district, cls: 'caps' },
+          { key: 'grand', label: c.county, width: W.county, cls: '' },
+        ];
+      case 'smd':
+        return [
+          { key: 'name', label: c.district, width: W.district, cls: 'caps' },
+          { key: 'parent', label: c.county, width: W.county, cls: '' },
+          { key: 'grand', label: c.region, width: W.region, cls: '' },
+        ];
+      case 'county':
+        return [
+          { key: 'name', label: c.county, width: W.county, cls: '' },
+          { key: 'parent', label: c.region, width: W.region, cls: '' },
+        ];
+      case 'nuts2':
+        return [{ key: 'name', label: c.region, width: W.region, cls: '' }];
+      default:
+        return [{ key: 'name', label: c.area, width: W.region, cls: '' }];
+    }
+  }
+
+  // ---- drawing --------------------------------------------------------------------------------
+
+  private draw(ctx: DialogContext, data: Data): void {
+    if (!ctx.units.has(this.scope)) this.scope = ctx.area;
+    const inScope = this.inScope(ctx, data);
+    const districts = [...new Map(inScope.filter((s) => s.row.district).map((s) => [s.row.district!, s.districtName])).entries()].sort((a, b) =>
       a[1].localeCompare(b[1], 'hu', { numeric: true }),
     );
     if (this.district && !districts.some(([id]) => id === this.district)) this.district = '';
-    const inDistrict = this.district ? inArea.filter((s) => s.row.district === this.district) : inArea;
+    const filterable = this.level === 'station' || this.level === 'settlement';
+    const stations = filterable && this.district ? inScope.filter((s) => s.row.district === this.district) : inScope;
+    const rows = this.buildRows(ctx, data, stations);
 
     // the leading parties of what is on the list (before the search)
-    const totals = data.options.map((_, i) => inDistrict.reduce((sum, s) => sum + s.votes[i], 0));
+    const totals = data.options.map((_, i) => rows.reduce((sum, r) => sum + r.votes[i], 0));
     const order = data.options.map((_, i) => i).filter((i) => totals[i] > 0).sort((a, b) => totals[b] - totals[a]);
     const shown = this.expanded ? order : order.slice(0, LEADING);
     const rest = this.expanded ? [] : order.slice(LEADING);
 
     const terms = normalizeForSearch(this.query).split(/\s+/).filter(Boolean);
-    const matches = terms.length ? inDistrict.filter((s) => terms.every((term) => s.search.includes(term))) : inDistrict;
-    const other = (s: Station) => rest.reduce((sum, i) => sum + s.votes[i], 0);
-    const value = (s: Station, votes: number) => (this.votesMode ? votes : s.total ? votes / s.total : 0);
-    const sortValue = (s: Station): number | string => {
+    const matches = terms.length ? rows.filter((r) => terms.every((term) => r.search.includes(term))) : rows;
+    const other = (r: Row) => rest.reduce((sum, i) => sum + r.votes[i], 0);
+    const value = (r: Row, votes: number) => (this.votesMode ? votes : r.total ? votes / r.total : 0);
+    const geo = this.geoColumns();
+    const sortValue = (r: Row): number | string => {
       const key = this.sort.key;
-      if (key === 'id') return s.row.id;
-      if (key === 'name') return s.name;
-      if (key === 'district') return s.districtName;
-      if (key === 'registered') return s.registered ?? -1;
-      if (key === 'turnout') return s.turnout ?? -1;
-      if (key === 'other') return value(s, other(s));
-      if (key === 'winner') return s.winner >= 0 ? optionLabel(data.options[s.winner]) : '';
-      return value(s, s.votes[Number(key.slice(7))]);
+      if (key === 'name') return r.name;
+      if (key === 'parent') return r.parent;
+      if (key === 'grand') return r.grand;
+      if (key === 'registered') return r.registered ?? -1;
+      if (key === 'turnout') return r.turnout ?? -1;
+      if (key === 'other') return value(r, other(r));
+      if (key === 'winner') return r.winner >= 0 ? optionLabel(data.options[r.winner]) : '';
+      return value(r, r.votes[Number(key.slice(7))]);
     };
     const sorted = [...matches].sort((a, b) => {
       const x = sortValue(a);
       const y = sortValue(b);
       const c = typeof x === 'string' ? x.localeCompare(y as string, 'hu', { numeric: true }) : x - (y as number);
-      return c * this.sort.dir || a.row.id.localeCompare(b.row.id);
+      return c * this.sort.dir || a.name.localeCompare(b.name, 'hu', { numeric: true });
     });
 
+    const redraw = () => this.draw(ctx, data);
     const header = (key: SortKey, label: string, cls = '', title?: string) =>
       h(
         'th',
@@ -300,44 +520,63 @@ export class StationDialog {
           {
             type: 'button',
             onclick: () => {
-              const text = key === 'id' || key === 'name' || key === 'district' || key === 'winner';
+              const text = key === 'name' || key === 'parent' || key === 'grand' || key === 'winner';
               this.sort = this.sort.key === key ? { key, dir: this.sort.dir === 1 ? -1 : 1 } : { key, dir: text ? 1 : -1 };
-              this.renderStations(ctx, data);
+              redraw();
             },
           },
           label,
         ),
       );
-    // Shares are centered with two decimals, votes right-aligned, both in a column of party width.
-    const cell = (s: Station, votes: number) =>
-      h('td', { class: this.votesMode ? 'num' : 'pct', title: `${formatInt(votes)} · ${s.total ? formatShare(votes / s.total, 2) : '–'}` }, this.votesMode ? formatInt(votes) : s.total ? formatShare(votes / s.total, 2) : '–');
-    const columns = 5 + shown.length + (rest.length ? 1 : 0) + 1;
-    const rows = sorted.slice(0, this.limit).flatMap((s) => {
-      const win = s.winner >= 0 ? data.options[s.winner] : null;
-      const open = s === this.selected && this.detail;
+
+    // Shares are centered with two decimals, votes right-aligned; the largest of a row is bold.
+    const partyCount = shown.length + (rest.length ? 1 : 0);
+    const align = this.votesMode ? 'num' : 'pct';
+    const cell = (r: Row, votes: number, best: boolean, edge: boolean) =>
+      h(
+        'td',
+        { class: `${align}${best ? ' max' : ''}${edge ? ' ge' : ''}`, title: `${formatInt(votes)} · ${r.total ? formatShare(votes / r.total, 2) : '–'}` },
+        this.votesMode ? formatInt(votes) : r.total ? formatShare(votes / r.total, 2) : '–',
+      );
+    const columns = geo.length + 2 + partyCount + 1;
+    const body = sorted.slice(0, this.limit).flatMap((r) => {
+      const win = r.winner >= 0 ? data.options[r.winner] : null;
+      const open = r.station !== null && r.station === this.selected && this.detail;
+      const values = [...shown.map((i) => r.votes[i]), ...(rest.length ? [other(r)] : [])];
+      const top = values.reduce((best, v, i) => (v > values[best] ? i : best), 0);
+      const bold = values.length > 1 && values[top] > 0;
       const row = h(
         'tr',
         {
-          class: s === this.selected ? (open ? 'selected open' : 'selected') : null,
+          class: r.station && r.station === this.selected ? 'selected' : null,
           style: `--tint:${win?.color ?? NO_DATA_COLOR}`,
-          title: open ? t.stations.collapse : t.stations.expand,
+          title: r.station ? (open ? t.stations.collapse : t.stations.expand) : t.stations.open(r.name),
           onclick: () => {
-            this.detail = s === this.selected ? !this.detail : true;
-            this.selected = s;
-            this.renderStations(ctx, data);
+            if (!r.station) {
+              this.open(r.id);
+            } else {
+              this.detail = r.station === this.selected ? !this.detail : true;
+              this.selected = r.station;
+            }
+            redraw();
           },
         },
-        h('td', { class: 'mono' }, s.row.id, s.row.transfer ? h('small', { class: 'sd-transfer', title: t.stations.transfer }, `-${t.stations.transferShort}`) : null),
-        h('td', { title: s.name }, s.name),
-        h('td', { title: s.districtName }, s.districtName),
-        h('td', { class: 'num' }, formatInt(s.registered)),
-        h('td', { class: 'pct' }, s.turnout === null ? '–' : formatShare(s.turnout, 2)),
-        ...shown.map((i) => cell(s, s.votes[i])),
-        ...(rest.length ? [cell(s, other(s))] : []),
-        h('td', { class: 'winner', title: win ? optionLabel(win) : undefined }, win ? h('span', { class: 'swatch', style: `background:${win.color}` }) : null, win ? optionLabel(win) : '–'),
+        ...geo.map((column, i) => {
+          const text = column.key === 'name' ? r.name : column.key === 'parent' ? r.parent : r.grand;
+          return h(
+            'td',
+            { class: `${column.cls}${i === geo.length - 1 ? ' ge' : ''}`, title: text },
+            text,
+            column.key === 'name' && r.transfer ? h('small', { class: 'sd-transfer', title: t.stations.transfer }, `-${t.stations.transferShort}`) : null,
+          );
+        }),
+        h('td', { class: 'num' }, formatInt(r.registered)),
+        h('td', { class: 'pct ge' }, r.turnout === null ? '–' : formatShare(r.turnout, 2)),
+        ...values.map((v, i) => cell(r, v, bold && i === top, i === values.length - 1)),
+        h('td', { class: 'winner' }, win ? optionLabel(win) : '–'),
       );
-      if (!open) return [row];
-      return [row, h('tr', { class: 'sd-detailrow', style: `--tint:${win?.color ?? NO_DATA_COLOR}` }, h('td', { colspan: columns }, this.stationDetail(ctx, data, s)))];
+      if (!open || !r.station) return [row];
+      return [row, h('tr', { class: 'sd-detailrow', style: `--tint:${win?.color ?? NO_DATA_COLOR}` }, h('td', { colspan: columns }, this.stationDetail(ctx, data, r.station)))];
     });
 
     const search = h('input', {
@@ -349,12 +588,33 @@ export class StationDialog {
       oninput: (e: Event) => {
         this.query = (e.target as HTMLInputElement).value;
         this.limit = PAGE;
-        this.renderStations(ctx, data);
+        redraw();
         const input = this.body.querySelector<HTMLInputElement>('.sd-search');
         input?.focus();
         input?.setSelectionRange(this.query.length, this.query.length);
       },
     });
+    const crumbs = h(
+      'nav',
+      { class: 'sd-crumbs' },
+      ...this.crumbIds(ctx).flatMap((id, i, all) => [
+        ...(i ? [h('span', { class: 'd-sep' }, ' › ')] : []),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'd-link',
+            disabled: i === all.length - 1,
+            onclick: () => {
+              this.jump(ctx, id);
+              redraw();
+            },
+          },
+          displayName(ctx.units.get(id)!),
+        ),
+      ]),
+    );
+    const rank = CHAIN.indexOf(this.level);
     const tools = h(
       'div',
       { class: 'sd-tools' },
@@ -362,47 +622,52 @@ export class StationDialog {
         'div',
         { class: 'sd-toolrow' },
         search,
-        area && area.type !== 'country'
+        toggle(
+          t.aria.resultType,
+          (['L', 'E'] as const).map((v) => ({ value: v, label: v === 'L' ? t.viewLTitle : t.viewETitle, disabled: !data.available[v] })),
+          ctx.view,
+          (v) => ctx.onView(v),
+          true,
+        ),
+        filterable
           ? h(
-              'label',
-              { class: 'nav-switch sd-switch' },
-              h('input', {
-                type: 'checkbox',
-                role: 'switch',
-                checked: this.all,
+              'select',
+              {
+                'aria-label': t.stations.columns.district,
                 onchange: (e: Event) => {
-                  this.all = (e.target as HTMLInputElement).checked;
+                  this.district = (e.target as HTMLSelectElement).value;
                   this.limit = PAGE;
-                  this.renderStations(ctx, data);
+                  redraw();
                 },
-              }),
-              h('span', { class: 'nav-track', 'aria-hidden': 'true' }),
-              h('span', null, t.stations.entireHungary),
+              },
+              h('option', { value: '', selected: this.district === '' }, t.stations.allDistricts),
+              ...districts.map(([id, name]) => h('option', { value: id, selected: id === this.district }, name)),
             )
           : null,
-        h(
-          'select',
-          {
-            'aria-label': t.stations.columns.district,
-            onchange: (e: Event) => {
-              this.district = (e.target as HTMLSelectElement).value;
-              this.limit = PAGE;
-              this.renderStations(ctx, data);
-            },
-          },
-          h('option', { value: '', selected: this.district === '' }, t.stations.allDistricts),
-          ...districts.map(([id, name]) => h('option', { value: id, selected: id === this.district }, name)),
-        ),
       ),
       h(
         'div',
         { class: 'sd-toolrow' },
-        h('button', { type: 'button', class: 'btn sd-up', onclick: () => this.goUp(ctx) }, `↑ ${t.stations.goUp}`),
-        h('p', { class: 'sd-count' }, t.stations.count(Math.min(sorted.length, this.limit), sorted.length), area && !this.all && area.type !== 'country' ? h('small', null, ` ${t.stations.inArea(displayName(area))}`) : null),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn',
+            disabled: rank <= 0,
+            title: rank > 0 ? t.stations.upTo(t.stations.rows[CHAIN[rank - 1]]) : t.stations.goUp,
+            onclick: () => {
+              this.goUp(ctx);
+              redraw();
+            },
+          },
+          `↑ ${t.stations.goUp}`,
+        ),
+        crumbs,
         h('span', { class: 'sd-spacer' }),
+        h('p', { class: 'sd-count' }, t.stations.count(Math.min(sorted.length, this.limit), sorted.length, t.stations.rows[this.level])),
         toggle(t.stations.showShares, [{ value: 'share', label: t.stations.showShares }, { value: 'votes', label: t.stations.showVotes }], this.votesMode ? 'votes' : 'share', (v) => {
           this.votesMode = v === 'votes';
-          this.renderStations(ctx, data);
+          redraw();
         }, true),
         order.length > LEADING
           ? h(
@@ -414,7 +679,7 @@ export class StationDialog {
                 checked: this.expanded,
                 onchange: (e: Event) => {
                   this.expanded = (e.target as HTMLInputElement).checked;
-                  this.renderStations(ctx, data);
+                  redraw();
                 },
               }),
               h('span', { class: 'nav-track', 'aria-hidden': 'true' }),
@@ -423,10 +688,9 @@ export class StationDialog {
           : null,
       ),
     );
+
     const c = t.stations.columns;
     const g = t.stations.groups;
-    const partyCount = shown.length + (rest.length ? 1 : 0);
-    const partyAlign = this.votesMode ? 'num' : 'pct';
     const table = h(
       'div',
       { class: 'sd-tablewrap' },
@@ -436,9 +700,7 @@ export class StationDialog {
         h(
           'colgroup',
           null,
-          h('col', { style: `width:${W.id}px` }),
-          h('col', { style: `width:${W.name}px` }),
-          h('col', { style: `width:${W.district}px` }),
+          ...geo.map((column) => h('col', { style: `width:${column.width}px` })),
           h('col', { style: `width:${W.registered}px` }),
           h('col', { style: `width:${W.turnout}px` }),
           ...Array.from({ length: partyCount }, () => h('col', { style: `width:${PARTY_W}px` })),
@@ -450,25 +712,24 @@ export class StationDialog {
           h(
             'tr',
             { class: 'sd-groups' },
-            h('th', { colspan: 3 }, g.geo),
-            h('th', { colspan: 2 }, g.register),
-            h('th', { colspan: partyCount }, g.votes),
+            h('th', { colspan: geo.length, class: 'ge' }, g.geo),
+            h('th', { colspan: 2, class: 'ge' }, g.register),
+            // colspan="0" would span every remaining column: an area without any votes has none
+            ...(partyCount ? [h('th', { colspan: partyCount, class: 'ge' }, g.votes)] : []),
             h('th', null, g.result),
           ),
           h(
             'tr',
-            null,
-            header('id', c.id),
-            header('name', c.name),
-            header('district', c.district),
+            { class: 'sd-cols' },
+            ...geo.map((column, i) => header(column.key, column.label, `${column.cls === 'mono' ? '' : column.cls}${i === geo.length - 1 ? ' ge' : ''}`)),
             header('registered', c.registered, 'num'),
-            header('turnout', c.turnout, 'pct'),
-            ...shown.map((i) => header(`option:${i}`, optionLabel(data.options[i]), partyAlign, data.options[i].name || optionLabel(data.options[i]))),
-            ...(rest.length ? [header('other', c.other, partyAlign, rest.map((i) => optionLabel(data.options[i])).join(', '))] : []),
+            header('turnout', c.turnout, 'pct ge'),
+            ...shown.map((i, n) => header(`option:${i}`, optionLabel(data.options[i]), `${align}${n === partyCount - 1 ? ' ge' : ''}`, data.options[i].name || optionLabel(data.options[i]))),
+            ...(rest.length ? [header('other', c.other, `${align} ge`, rest.map((i) => optionLabel(data.options[i])).join(', '))] : []),
             header('winner', c.winner),
           ),
         ),
-        h('tbody', null, ...rows),
+        h('tbody', null, ...body),
       ),
       sorted.length === 0 ? h('p', { class: 'sd-note' }, t.stations.none) : null,
       sorted.length > this.limit
@@ -479,15 +740,24 @@ export class StationDialog {
               class: 'btn sd-more',
               onclick: () => {
                 this.limit = Number.POSITIVE_INFINITY;
-                this.renderStations(ctx, data);
+                redraw();
               },
             },
             t.stations.showAll(sorted.length - this.limit),
           )
         : null,
     );
+
     const scroll = this.body.querySelector('.sd-tablewrap')?.scrollTop ?? 0;
     this.body.replaceChildren(tools, table);
+    // The second header row sticks exactly under the first: measure it instead of guessing, or
+    // the table shows through the gap between them while scrolling.
+    const groupRow = this.body.querySelector<HTMLElement>('.sd-groups');
+    const colRow = this.body.querySelector<HTMLElement>('.sd-cols');
+    if (groupRow && colRow) {
+      const top = colRow.getBoundingClientRect().top - groupRow.getBoundingClientRect().top;
+      if (top > 0) for (const th of colRow.querySelectorAll<HTMLElement>('th')) th.style.top = `${top}px`;
+    }
     const wrap = this.body.querySelector('.sd-tablewrap');
     if (wrap) wrap.scrollTop = scroll;
   }
@@ -502,7 +772,12 @@ export class StationDialog {
     const head = h(
       'div',
       { class: 'sd-dhead' },
-      h('div', null, h('div', { class: 'sd-hname' }, t.stations.station(s.row.id)), h('div', { class: 'sd-hkind' }, `${t.stations.stationKind} · ${s.name}${s.row.transfer ? ` · ${t.stations.transfer}` : ''}`)),
+      h(
+        'div',
+        null,
+        h('div', { class: 'sd-hname' }, t.stations.station(s.row.id)),
+        h('div', { class: 'sd-hkind' }, `${t.stations.stationKind} · ${s.name}${s.row.transfer ? ` · ${t.stations.transfer}` : ''}`),
+      ),
       h('span', { class: 'sd-spacer' }),
       h(
         'button',
@@ -512,231 +787,29 @@ export class StationDialog {
           onclick: (e: Event) => {
             e.stopPropagation();
             this.detail = false;
-            this.renderStations(ctx, data);
+            this.draw(ctx, data);
           },
         },
         t.stations.collapse,
       ),
     );
-    return h('div', { class: 'sd-detail', onclick: (e: Event) => e.stopPropagation() }, head, panes(ctx.view, items, ctx.view === 'L' ? s.row.tl : s.row.te, `S:${s.row.id}`));
-  }
-
-  // ---- hierarchy tab -----------------------------------------------------------------------
-
-  /** Hungary -> region -> county -> electoral district -> municipality (-> station). */
-  private pathTo(ctx: DialogContext, unitId: string, district?: string | null): Node[] {
-    const date = ctx.election.date;
-    const type = (id: string) => ctx.units.get(id)?.type;
-    const ancestors = ctx.hierarchy.ancestors(unitId, date);
-    const chain: string[] = [];
-    const country = ancestors.find((id) => type(id) === 'country') ?? [...ctx.units.values()].find((u) => u.type === 'country')?.id;
-    if (country && country !== unitId) chain.push(country);
-    const own = type(unitId);
-    for (const id of ancestors) if (type(id) === 'nuts2' || type(id) === 'county') chain.push(id);
-    if (own === 'settlement' || own === 'bp_district') {
-      const districts = ancestors.filter((id) => type(id) === 'smd');
-      const smd = district && districts.includes(district) ? district : districts[0];
-      if (smd) chain.push(smd);
-    }
-    chain.push(unitId);
-    return [...new Set(chain)].map((id) => ({ kind: 'unit', id }));
-  }
-
-  /** Back to the table, listing the stations of the area the hierarchy stands on. */
-  private backToList(ctx: DialogContext, node: Node): void {
-    const unit = node.kind === 'station' ? node.station.row.unit : node.id;
-    this.scope = ctx.units.has(unit) ? unit : null;
-    this.all = false;
-    this.district = '';
-    this.limit = PAGE;
-    if (node.kind === 'station') {
-      this.selected = node.station;
-      this.detail = true;
-    }
-    ctx.onTab('stations');
-  }
-
-  private async renderHierarchy(ctx: DialogContext, data: Data): Promise<void> {
-    if (!this.path.length) this.path = this.pathTo(ctx, this.scopeUnit(ctx)?.id ?? ctx.area);
-    const node = this.path.at(-1)!;
-    const crumbs = h(
-      'nav',
-      { class: 'sd-crumbs' },
-      ...this.path.flatMap((n, i) => [
-        ...(i ? [h('span', { class: 'd-sep' }, ' › ')] : []),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'd-link',
-            disabled: i === this.path.length - 1,
-            onclick: () => {
-              this.path = this.path.slice(0, i + 1);
-              void this.renderHierarchy(ctx, data);
-            },
-          },
-          this.nodeName(ctx, n),
-        ),
-      ]),
-    );
-    const up = h(
-      'button',
-      {
-        type: 'button',
-        class: 'btn',
-        disabled: this.path.length < 2,
-        onclick: () => {
-          this.path = this.path.slice(0, -1);
-          void this.renderHierarchy(ctx, data);
-        },
-      },
-      `↑ ${t.stations.goUp}`,
-    );
-    const back = h('button', { type: 'button', class: 'btn', onclick: () => this.backToList(ctx, node) }, `↓ ${t.stations.backToList}`);
-    const head = h(
+    const [registered, voted, valid, invalid] = ctx.view === 'L' ? s.row.tl : s.row.te;
+    const block = turnoutBlock(registered ?? null, voted ?? null, valid ?? null, invalid ?? null);
+    return h(
       'div',
-      { class: 'sd-hhead' },
-      up,
-      h('div', null, h('div', { class: 'sd-hname' }, this.nodeName(ctx, node)), h('div', { class: 'sd-hkind' }, this.nodeKind(ctx, node))),
-      h('span', { class: 'sd-spacer' }),
-      back,
-    );
-    this.body.replaceChildren(h('div', { class: 'sd-hier' }, crumbs, head, h('p', { class: 'sd-note' }, t.loading)));
-
-    const { items, turnout } = await this.nodeResults(ctx, data, node);
-    const below = this.children(ctx, data, node);
-    if (ctx !== this.ctx || this.path.at(-1) !== node) return; // moved on meanwhile
-    const body: HTMLElement[] = [crumbs, head, panes(ctx.view, items, turnout, `H:${node.kind === 'unit' ? node.id : node.station.row.id}`)];
-    if (below.length) {
-      body.push(
-        h('h4', { class: 'd-h' }, t.stations.below),
+      { class: 'sd-detail', onclick: (e: Event) => e.stopPropagation() },
+      head,
+      h(
+        'div',
+        { class: 'sd-panes' },
         h(
           'div',
-          { class: 'sd-tablewrap' },
-          h(
-            'table',
-            { class: 'tbl sd-table sd-children' },
-            h('tbody', null, ...below.map((child) => {
-              const win = child.winner;
-              return h(
-                'tr',
-                {
-                  style: `--tint:${win?.color ?? NO_DATA_COLOR}`,
-                  onclick: () => {
-                    this.path = [...this.path, child.node];
-                    void this.renderHierarchy(ctx, data);
-                  },
-                },
-                h('td', null, child.name),
-                h('td', { class: 'winner' }, win ? h('span', { class: 'swatch', style: `background:${win.color}` }) : null, win ? win.label : '–'),
-                h('td', { class: 'num' }, child.share === null ? '–' : formatShare(child.share, 2)),
-                h('td', { class: 'num' }, child.turnout === null ? '–' : `${t.turnout} ${formatShare(child.turnout, 2)}`),
-              );
-            })),
-          ),
+          { class: 'sd-pane' },
+          h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, ctx.view === 'L' ? t.viewLTitle : t.viewETitle))),
+          items.length ? resultRows(items, { key: `S:${s.row.id}` }) : h('p', { class: 'sd-note' }, t.stations.noResults),
         ),
-      );
-    }
-    this.body.replaceChildren(h('div', { class: 'sd-hier' }, ...body));
+        h('div', { class: 'sd-pane sd-pane-t' }, h('h4', { class: 'd-h' }, t.participation), block ?? h('p', { class: 'sd-note' }, t.noTurnout)),
+      ),
+    );
   }
-
-  private nodeName(ctx: DialogContext, node: Node): string {
-    if (node.kind === 'station') return t.stations.station(node.station.row.id);
-    const unit = ctx.units.get(node.id);
-    return unit ? displayName(unit) : node.id;
-  }
-
-  private nodeKind(ctx: DialogContext, node: Node): string {
-    if (node.kind === 'station') return `${t.stations.stationKind} · ${node.station.name}${node.station.row.transfer ? ` · ${t.stations.transfer}` : ''}`;
-    const unit = ctx.units.get(node.id);
-    return ctx.meta.unit_types.find((u) => u.type === unit?.type)?.name ?? '';
-  }
-
-  /** The node's results as rows, and its turnout [registered, voted, valid, invalid]. */
-  private async nodeResults(ctx: DialogContext, data: Data, node: Node): Promise<{ items: ResultItem[]; turnout: (number | null)[] }> {
-    if (node.kind === 'station') {
-      const s = node.station;
-      const items = data.options
-        .map((o, i) => ({ o, v: s.votes[i] }))
-        .filter((x) => x.v > 0)
-        .sort((a, b) => b.v - a.v)
-        .map(({ o, v }): ResultItem => ({ label: o.name || optionLabel(o), color: o.color, share: s.total ? v / s.total : 0, count: v }));
-      return { items, turnout: ctx.view === 'L' ? s.row.tl : s.row.te };
-    }
-    const unit = await loadUnit(node.id).catch(() => null);
-    let results = unit?.elections[ctx.election.id];
-    if (!results) return { items: [], turnout: [null, null, null, null] };
-    if (!ctx.postal && results.mail) results = withoutMail(results);
-    const { rows, total } = optionVotes(results, ctx.view);
-    const names = new Map(data.options.map((o) => [o.id, o]));
-    const items = rows.map((r): ResultItem => {
-      const option = names.get(r.option);
-      return { label: (option && (option.name || optionLabel(option))) || r.name || t.independent, color: r.color, share: total ? r.votes / total : 0, count: r.votes };
-    });
-    const ballot = ctx.view === 'L' ? 'list' : 'candidate';
-    const row = results.turnout.filter((x) => x.ballot === ballot).sort((a, b) => (ctx.view === 'L' ? a.round - b.round : b.round - a.round))[0];
-    return { items, turnout: row ? [row.registered, row.voted, row.valid, row.invalid] : [null, null, null, null] };
-  }
-
-  /** The areas (or stations) one level below a node, with their winners. */
-  private children(ctx: DialogContext, data: Data, node: Node): { node: Node; name: string; winner: { label: string; color: string } | null; share: number | null; turnout: number | null }[] {
-    if (node.kind === 'station') return [];
-    const unit = ctx.units.get(node.id);
-    if (!unit) return [];
-    if (unit.type === 'settlement' || unit.type === 'bp_district') {
-      const district = this.path.map((n) => (n.kind === 'unit' && ctx.units.get(n.id)?.type === 'smd' ? n.id : null)).find(Boolean);
-      return data.stations
-        .filter((s) => s.row.unit === unit.id && (!district || s.row.district === district))
-        .map((s) => {
-          const win = s.winner >= 0 ? data.options[s.winner] : null;
-          return {
-            node: { kind: 'station' as const, station: s },
-            name: t.stations.station(s.row.id),
-            winner: win ? { label: optionLabel(win), color: win.color } : null,
-            share: win && s.total ? s.votes[s.winner] / s.total : null,
-            turnout: s.turnout,
-          };
-        });
-    }
-    const date = ctx.election.date;
-    const next: Partial<Record<string, MapLevel>> = { country: 'nuts2', nuts1: 'nuts2', nuts2: 'county', county: 'smd', smd: 'settlement', jaras: 'settlement' };
-    const level = next[unit.type];
-    if (!level) return [];
-    const ids =
-      unit.type === 'country'
-        ? [...ctx.units.values()].filter((u) => u.type === 'nuts2' && (u.valid_from === null || u.valid_from <= date) && (u.valid_to === null || date < u.valid_to)).map((u) => u.id)
-        : [...(ctx.hierarchy.members(unit.id, level, date) ?? [])];
-    const options = new Map(data.options.map((o) => [o.id, o]));
-    return ids
-      .map((id) => {
-        const summary = data.summaries[id];
-        const top = summary?.top[0];
-        const option = top ? options.get(top[0]) : undefined;
-        return {
-          node: { kind: 'unit' as const, id },
-          name: displayName(ctx.units.get(id)!),
-          winner: option ? { label: optionLabel(option), color: option.color } : null,
-          share: top ? top[1] : null,
-          turnout: summary?.turnout ?? null,
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, 'hu', { numeric: true }));
-  }
-}
-
-/** Results and participation beside each other, both as the side panel draws them. */
-function panes(view: ResultViewId, items: ResultItem[], turnout: (number | null)[], key: string): HTMLElement {
-  const [registered, voted, valid, invalid] = turnout;
-  const block = turnoutBlock(registered ?? null, voted ?? null, valid ?? null, invalid ?? null);
-  return h(
-    'div',
-    { class: 'sd-panes' },
-    h(
-      'div',
-      { class: 'sd-pane' },
-      h('h4', { class: 'd-h' }, h('span', null, t.results, h('small', null, view === 'L' ? t.viewLTitle : t.viewETitle))),
-      items.length ? resultRows(items, { key }) : h('p', { class: 'sd-note' }, t.stations.noResults),
-    ),
-    h('div', { class: 'sd-pane sd-pane-t' }, h('h4', { class: 'd-h' }, t.participation), block ?? h('p', { class: 'sd-note' }, t.noTurnout)),
-  );
 }

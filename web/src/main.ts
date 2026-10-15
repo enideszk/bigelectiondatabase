@@ -129,22 +129,19 @@ async function main(): Promise<void> {
       return;
     }
     dialog.show({
-      meta,
       units,
       hierarchy,
       election,
       view: state.view,
       area,
-      postal: state.postal,
-      tab: state.list,
-      onTab: (list) => setState({ list }),
-      onClose: () => setState({ list: null }),
+      onView: (view) => setState({ view }),
+      onClose: () => setState({ list: false }),
     });
   };
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const state = getState();
-    if (state.list) return setState({ list: null });
+    if (state.list) return setState({ list: false });
     const target = e.target as HTMLElement | null;
     if (target?.closest('input, select, textarea')) return; // e.g. the search box clears itself
     if (state.unit) setState({ unit: null });
