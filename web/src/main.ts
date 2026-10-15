@@ -182,7 +182,11 @@ async function main(): Promise<void> {
       counts: levelCounts(viewDate(state)),
       elections: meta.elections,
       current: election,
-      onLevel: (level) => setState(state.nav ? { level, focus: hierarchy.focusFor(focusOf(state), level, viewDate(state)) } : { level }),
+      // switching the level clears the selection (the side panel goes back to the national results)
+      onLevel: (level) => {
+        if (level === state.level) return;
+        setState(state.nav ? { level, unit: null, focus: hierarchy.focusFor(focusOf(state), level, viewDate(state)) } : { level, unit: null });
+      },
       onElection: (e) => setState({ year: e.year, type: e.type }),
     });
     const views = electionFile?.views;
