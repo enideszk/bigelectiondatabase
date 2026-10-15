@@ -20,10 +20,17 @@ export function pickTurnout(rows: Turnout[], view: 'L' | 'E', round: number): Tu
 export function renderTurnout(ctx: SidebarContext): HTMLElement[] {
   const head = h('h4', { class: 'd-h' }, t.participation);
   const row = pickTurnout(ctx.results?.turnout ?? [], ctx.state.view, ctx.state.round);
-  if (!row || row.registered === null || row.voted === null || row.registered === 0) {
-    return [head, h('p', { class: 'd-empty' }, t.noTurnout)];
-  }
-  const share = row.voted / row.registered;
+  const block = row ? turnoutBlock(row.registered, row.voted, row.valid, row.invalid) : null;
+  return block ? [head, block] : [head, h('p', { class: 'd-empty' }, t.noTurnout)];
+}
+
+/**
+ * The participation block itself (ring + legend + ballot papers), from one ballot's numbers; null
+ * when there is nothing to show. Also used by the polling station dialog.
+ */
+export function turnoutBlock(registered: number | null, voted: number | null, valid: number | null, invalid: number | null): HTMLElement | null {
+  if (registered === null || voted === null || registered === 0) return null;
+  const share = voted / registered;
   // Key entry: a tall color bar, the label, then the share in bold and the count.
   const entry = (cls: string, label: string, part: number, count: number) =>
     h(
@@ -39,21 +46,21 @@ export function renderTurnout(ctx: SidebarContext): HTMLElement[] {
       'div',
       { class: 'd-turnout' },
       donut(share, `${t.turnout}: ${formatShare(share, 2)}`),
-      h('div', { class: 'd-tlegend' }, entry('v', t.voted, share, row.voted), entry('nv', t.didNotVote, 1 - share, row.registered - row.voted)),
+      h('div', { class: 'd-tlegend' }, entry('v', t.voted, share, voted), entry('nv', t.didNotVote, 1 - share, registered - voted)),
     ),
   );
-  if (row.valid !== null && row.invalid !== null && row.valid + row.invalid > 0) {
-    const cast = row.valid + row.invalid;
+  if (valid !== null && invalid !== null && valid + invalid > 0) {
+    const cast = valid + invalid;
     const line = (label: string, value: (Node | string)[]) => h('div', { class: 'd-bline' }, h('span', null, label), h('strong', null, ...value));
     block.append(
       h(
         'div',
         { class: 'd-ballots' },
         line(t.ballotsCast, [formatInt(cast)]),
-        line(t.invalidBallots, [formatShare(row.invalid / cast, 2), h('small', null, ` (${formatInt(row.invalid)})`)]),
-        line(t.validBallots, [formatShare(row.valid / cast, 2), h('small', null, ` (${formatInt(row.valid)})`)]),
+        line(t.invalidBallots, [formatShare(invalid / cast, 2), h('small', null, ` (${formatInt(invalid)})`)]),
+        line(t.validBallots, [formatShare(valid / cast, 2), h('small', null, ` (${formatInt(valid)})`)]),
       ),
     );
   }
-  return [head, block];
+  return block;
 }

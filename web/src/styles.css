@@ -1243,12 +1243,23 @@ input:focus-visible,
   padding: 10px 14px 12px;
 }
 
+/* the controls above the table, in two rows: what is listed, then how it is shown */
 .sd-tools {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sd-toolrow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
+}
+
+.sd-spacer {
+  flex: 1 1 auto;
 }
 
 .sd-search {
@@ -1268,6 +1279,10 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
+.sd-count small {
+  color: var(--ink-4);
+}
+
 .sd-tablewrap {
   flex: 1;
   min-height: 0;
@@ -1280,12 +1295,44 @@ input:focus-visible,
   font-size: 12.5px;
 }
 
+/* the station table is a grid of cells: fixed column widths (every party column the same) and
+   vertical hairlines between them */
+.sd-stations {
+  table-layout: fixed;
+}
+
+.sd-stations th,
+.sd-stations td {
+  border-right: 1px solid var(--hair-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sd-stations th:last-child,
+.sd-stations td:last-child {
+  border-right: 0;
+}
+
 .sd-table thead th {
   position: sticky;
-  top: 0;
   z-index: 1;
   padding: 0;
   background: var(--surface-2);
+}
+
+/* row 1: the broad categories, row 2: the sortable columns under them */
+.sd-table thead tr.sd-groups th {
+  top: 0;
+  height: 23px;
+  padding: 0 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--hair-soft);
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.sd-table thead tr:not(.sd-groups) th {
+  top: 23px;
 }
 
 .sd-table th button {
@@ -1307,8 +1354,18 @@ input:focus-visible,
   text-align: right;
 }
 
+.sd-table th.pct button {
+  text-align: center;
+}
+
 .sd-table th button:hover {
   color: var(--ink);
+}
+
+/* a party column is only as wide as its share values: long names are cut (the title has them) */
+.sd-stations th button {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sd-table th.asc button::after {
@@ -1346,6 +1403,18 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
+/* shares: centered, two decimals, in the party columns' common width */
+.sd-table .pct {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "-T": a transfer station (voters registered elsewhere) */
+.sd-transfer {
+  color: var(--ink-4);
+}
+
 .sd-table td.mono {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
@@ -1360,6 +1429,49 @@ input:focus-visible,
 .sd-more {
   display: block;
   margin: 10px auto;
+}
+
+/* a station's results and turnout under its row, side by side */
+.sd-detailrow td {
+  padding: 0;
+  background: color-mix(in srgb, var(--tint) 10%, var(--surface-1));
+  white-space: normal;
+  cursor: default;
+}
+
+.sd-detailrow:hover {
+  background: none;
+}
+
+.sd-detail {
+  padding: 12px 14px 14px;
+}
+
+.sd-dhead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.sd-panes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.sd-pane {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.sd-pane-t {
+  flex: 0 1 300px;
+}
+
+.sd-pane .d-h {
+  margin-top: 0;
 }
 
 /* hierarchy tab */
@@ -1377,9 +1489,12 @@ input:focus-visible,
   flex: none;
 }
 
-.sd-hier .res-rows,
 .sd-hier .sd-tablewrap {
   max-width: 820px;
+}
+
+.sd-hier .sd-panes {
+  max-width: 980px;
 }
 
 .sd-crumbs {
@@ -1412,14 +1527,12 @@ input:focus-visible,
   color: var(--ink-3);
 }
 
-.sd-turnout {
-  font-size: 12.5px;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
 .sd-children td:first-child {
-  width: 50%;
+  width: 34%;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- narrow screens: the toolbar wraps; on a phone the side panel goes below ------------ */

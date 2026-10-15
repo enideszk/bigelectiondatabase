@@ -189,9 +189,14 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   station or settlement, so nothing else changes).
 - **Polling station dialog** (`stations/dialog.ts`, `?list=stations|hierarchy`, from the panel's
   "Go to polling station list"): a sortable table of the stations of the selected area (or all
-  Hungary), multi-word search, electoral district filter, six leading parties + Other (all on
-  request), shares or votes, rows tinted with the winner; and a hierarchy view (station ->
-  municipality -> electoral district -> county -> region -> Hungary). Data:
+  Hungary), multi-word search (settlement, electoral district, county, region, station ID — not
+  the járás: "Székesfeh" then matched Polgárdi), electoral district filter, six leading parties +
+  Other (all on request), shares (centered, two decimals, all party columns the same width) or
+  votes, rows tinted with the winner, a two-row header grouping the columns, and a grey "-T" after
+  the ID of a transfer station. Clicking a station opens its results and participation under the
+  row (the side panel's blocks, side by side); "Go up" leaves the table for the hierarchy view
+  (station -> municipality -> electoral district -> county -> region -> Hungary), which comes back
+  with "Polling station list" — then listing the stations of the area it stood on. Data:
   `data/stations/{election}.json` (`export/stations.py`), station ID "MAZ-OEVK-TAZ-SZK" from NVI's
   own codes (`polling_station.nvi_code`, migration 0008). Station votes + mail = national, tested.
 - **Hover never uses Leaflet's canvas events** (they check the pointer at most every 32 ms and
