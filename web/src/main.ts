@@ -77,6 +77,16 @@ async function main(): Promise<void> {
     setState(child ? { unit: unitId, focus: unitId, level: child } : { unit: unitId });
   };
 
+  /** "Go one up": back to the area above the one shown, at the level that shows it. The map's
+   *  button, Escape and a click beside the shown areas all come here; false = nowhere to go. */
+  const goOneUp = (): boolean => {
+    const state = getState();
+    const focus = focusOf(state);
+    if (!state.nav || focus === null) return false;
+    setState({ focus: hierarchy.parent(focus, viewDate(state)), level: hierarchy.levelOf(focus) ?? TOP_LEVEL });
+    return true;
+  };
+
   /** When the pointer rests on a unit, fetch its file so a click shows it at once (files are small and cached). */
   let prefetchTimer: number | undefined;
   const prefetch = (unitId: string) => {
@@ -95,7 +105,7 @@ async function main(): Promise<void> {
     const unit = units.get(unitId);
     return unit ? cardContent(unit, units, meta, electionFile, getState().view, coloring?.values.get(unitId)) : [];
   };
-  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: click, onHover: prefetch, describe }, meta.attribution, meta.geo);
+  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: click, onOutside: goOneUp, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
@@ -144,6 +154,7 @@ async function main(): Promise<void> {
     if (state.list) return setState({ list: false });
     const target = e.target as HTMLElement | null;
     if (target?.closest('input, select, textarea')) return; // e.g. the search box clears itself
+    if (goOneUp()) return;
     if (state.unit) setState({ unit: null });
   });
 
@@ -165,7 +176,7 @@ async function main(): Promise<void> {
       setState({ map: value }),
     );
     renderLegend(byId('legend'), legendFor(coloring, state.level, members));
-    renderNavToggle(byId('nav-toggle'), state.nav, (on) => setState(on ? { nav: true, focus: null, level: TOP_LEVEL } : { nav: false, focus: null }));
+    renderNavToggle(byId('nav-toggle'), state.nav, (on) => setState({ nav: on, focus: null }));
     // "Go one up", while an area is open
     const up = byId('nav-up') as HTMLButtonElement;
     const focus = focusOf(state);
@@ -173,7 +184,7 @@ async function main(): Promise<void> {
     if (focus !== null) {
       const parent = hierarchy.parent(focus, viewDate(state));
       up.textContent = t.goUp(parent ? displayName(units.get(parent)!) : t.country);
-      up.onclick = () => setState({ focus: parent, level: hierarchy.levelOf(focus) ?? TOP_LEVEL });
+      up.onclick = () => goOneUp();
     }
   };
 

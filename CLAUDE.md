@@ -175,12 +175,14 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
 - **Hierarchical map navigation** (toolbar switch, `?nav=1&focus=<unit>`, off by default; off =
   the old behavior): `map/hierarchy.ts` walks large region -> region -> county -> electoral
   district (OEVK) -> settlement (owner's choice: not the járások, which stay reachable with the
-  level buttons) by the units' parents on the shown date (`UnitIndexEntry.earlier_parents` holds
+  level buttons) by the units' parents on the shown date. Turning the switch on keeps the level
+  shown (it does not jump to the large regions) (`UnitIndexEntry.earlier_parents` holds
   the pre-2018 Central Hungary chains; districts hang under their county by code; a settlement's
   districts are `UnitIndexEntry.districts`, the set in force on the date). A map click selects the unit and opens it
   (shows its units one level down, `ElectionMap.setScope`, flies to it); search / panel links
   open the unit's parent; level buttons move the focus up when needed; "Go one up" (map, top
-  left) returns to the parent. A scoped layer strokes its polygons (the border mesh covers the
+  left), Escape and a click beside the shown areas all return to the parent (`goOneUp()` in
+  main.ts; the map reports a click that hit nothing as `onOutside`). A scoped layer strokes its polygons (the border mesh covers the
   whole level). The legend counts winners among the shown units.
 - **Side panel**: with nothing selected it shows the national results (no close button); Escape
   clears the selection (or closes the dialog). National party-list results include the votes cast
@@ -190,8 +192,9 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
 - **Polling station dialog** (`stations/dialog.ts`, `?list=`, from the panel's "Go to polling
   station list"): **one** sortable table, which shows any level of
   Hungary -> region -> county -> electoral district -> settlement -> polling station. "Go up"
-  aggregates the same table one level up (and widens the area when the level reaches it), a click
-  on an area row opens it one level down, the breadcrumb climbs back; every aggregate is summed
+  aggregates the same table one level up (and widens the area when the level reaches it), "Go
+  down" and "Go back" go the other way (one level down in the same area, or back to its polling
+  stations), a click on an area row opens it one level down, the breadcrumb climbs back; every aggregate is summed
   from the stations themselves (so no mail votes, and no per-unit fetches). Columns: the row's name
   and the areas above it (electoral districts uppercase), registered, turnout, the six leading
   parties + Other (all on request) as shares (centered, two decimals, equal widths, the largest of

@@ -60,6 +60,8 @@ export interface FeatureRef {
 
 export interface MapCallbacks {
   onSelect: (unitId: string) => void;
+  /** A click that hit no unit: with hierarchical navigation it leaves the area that is open. */
+  onOutside?: () => void;
   /** The pointer moved onto a unit (used to prefetch its data). */
   onHover?: (unitId: string) => void;
   /** The hover card's content for a unit. */
@@ -211,6 +213,7 @@ export class ElectionMap {
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       const hit = this.hitTest(e.containerPoint);
       if (hit) this.callbacks.onSelect(hit.id);
+      else this.callbacks.onOutside?.();
     });
   }
 

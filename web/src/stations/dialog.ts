@@ -155,6 +155,9 @@ export class StationDialog {
   /** The selected station's results are open under its row. */
   private detail = false;
 
+  /** The last pointer press landed on the backdrop itself (not inside the dialog). */
+  private pressedBackdrop = false;
+
   constructor() {
     this.body = h('div', { class: 'sd-body' });
     const close = h('button', { type: 'button', class: 'btn btn-ghost btn-close', title: t.stations.close, 'aria-label': t.stations.close, onclick: () => this.ctx?.onClose() }, '×');
@@ -164,7 +167,22 @@ export class StationDialog {
       h('header', { class: 'sd-head' }, h('h2', null, t.stations.title), close),
       this.body,
     );
-    this.overlay = h('div', { class: 'sd-overlay', hidden: true, onclick: (e: Event) => e.target === this.overlay && this.ctx?.onClose() }, dialog);
+    // A click counts as "beside the dialog" only if the press landed there too: selecting text in
+    // the search box and releasing the button outside it must not close the dialog.
+    this.overlay = h(
+      'div',
+      {
+        class: 'sd-overlay',
+        hidden: true,
+        onpointerdown: (e: Event) => {
+          this.pressedBackdrop = e.target === this.overlay;
+        },
+        onclick: (e: Event) => {
+          if (e.target === this.overlay && this.pressedBackdrop) this.ctx?.onClose();
+        },
+      },
+      dialog,
+    );
     document.body.append(this.overlay);
   }
 
@@ -196,6 +214,9 @@ export class StationDialog {
     this.overlay.hidden = true;
     document.body.classList.remove('modal-open');
     this.ctx = null;
+    this.query = '';
+    this.limit = PAGE;
+    this.detail = false;
   }
 
   // ---- data -------------------------------------------------------------------------------
@@ -307,6 +328,20 @@ export class StationDialog {
     if (want < 0) this.scope = this.countryId(ctx);
     else if (unitRank(ctx.units.get(this.scope)?.type) > want) this.scope = this.areaAtRank(ctx, this.scope, want);
     this.level = next;
+    this.afterMove();
+  }
+
+  /** One level down, in the same area: every one of its units at that level. */
+  private goDown(): void {
+    const rank = CHAIN.indexOf(this.level);
+    if (rank >= CHAIN.length - 1) return;
+    this.level = CHAIN[rank + 1];
+    this.afterMove();
+  }
+
+  /** All the way down: the polling stations of the area shown. */
+  private goBack(): void {
+    this.level = 'station';
     this.afterMove();
   }
 
@@ -649,18 +684,50 @@ export class StationDialog {
         'div',
         { class: 'sd-toolrow' },
         h(
-          'button',
-          {
-            type: 'button',
-            class: 'btn',
-            disabled: rank <= 0,
-            title: rank > 0 ? t.stations.upTo(t.stations.rows[CHAIN[rank - 1]]) : t.stations.goUp,
-            onclick: () => {
-              this.goUp(ctx);
-              redraw();
+          'div',
+          { class: 'sd-moves', role: 'group', 'aria-label': t.stations.moves },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn',
+              disabled: rank <= 0,
+              title: rank > 0 ? t.stations.upTo(t.stations.rows[CHAIN[rank - 1]]) : t.stations.goUp,
+              onclick: () => {
+                this.goUp(ctx);
+                redraw();
+              },
             },
-          },
-          `↑ ${t.stations.goUp}`,
+            `↑ ${t.stations.goUp}`,
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn',
+              disabled: rank >= CHAIN.length - 1,
+              title: rank < CHAIN.length - 1 ? t.stations.downTo(t.stations.rows[CHAIN[rank + 1]]) : t.stations.goDown,
+              onclick: () => {
+                this.goDown();
+                redraw();
+              },
+            },
+            `↓ ${t.stations.goDown}`,
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn',
+              disabled: this.level === 'station',
+              title: t.stations.backToStations,
+              onclick: () => {
+                this.goBack();
+                redraw();
+              },
+            },
+            `⤓ ${t.stations.goBack}`,
+          ),
         ),
         crumbs,
         h('span', { class: 'sd-spacer' }),

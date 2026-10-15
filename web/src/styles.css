@@ -1262,6 +1262,13 @@ input:focus-visible,
   flex: 1 1 auto;
 }
 
+/* up / down / back through the hierarchy, as one group of buttons */
+.sd-moves {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
 .sd-search {
   flex: 1 1 340px;
   padding: 7px 10px;
