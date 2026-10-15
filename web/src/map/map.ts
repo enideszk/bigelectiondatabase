@@ -60,7 +60,8 @@ export interface FeatureRef {
 
 export interface MapCallbacks {
   onSelect: (unitId: string) => void;
-  /** A click that hit no unit: with hierarchical navigation it leaves the area that is open. */
+  /** A click that hit no unit (not a drag): it leaves the open area of the hierarchical navigation,
+   *  or else clears the selection. */
   onOutside?: () => void;
   /** The pointer moved onto a unit (used to prefetch its data). */
   onHover?: (unitId: string) => void;

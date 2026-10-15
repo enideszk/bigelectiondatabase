@@ -417,7 +417,8 @@ input:focus-visible,
   cursor: pointer;
 }
 
-.search-results button:hover,
+/* the highlighted result: moved by the arrow keys and by the mouse, so only one row lights up */
+.search-results button.active,
 .search-results button:focus-visible {
   background: var(--surface-3);
   outline: none;

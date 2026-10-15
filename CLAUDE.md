@@ -188,7 +188,9 @@ Number/date formatting is US (`1,234.5`, `April 8, 2018`), only via `web/src/lib
   as `onOutside`). A scoped layer strokes its polygons (the border mesh covers the whole level).
   The legend counts winners among the shown units.
 - **Side panel**: with nothing selected it shows the national results (no close button); Escape
-  clears the selection (or closes the dialog). National party-list results include the votes cast
+  and a click on the map beside the polygons clear the selection (`back()` in main.ts; with an area
+  open in the hierarchical navigation they first go one up; Escape closes the dialog first).
+  National party-list results include the votes cast
   by mail, as the official totals do; "Include postal votes" (`?postal=0` = off) subtracts them
   (`UnitElection.mail` on the country, `lib/results.ts` `withoutMail`; mail votes belong to no
   station or settlement, so nothing else changes).

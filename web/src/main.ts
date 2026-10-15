@@ -96,6 +96,13 @@ async function main(): Promise<void> {
     return true;
   };
 
+  /** Escape, and a click on the map that hits no unit: leave the open area, or else clear the
+   *  selection (the side panel then shows the national results). */
+  const back = () => {
+    if (goOneUp()) return;
+    if (getState().unit) setState({ unit: null });
+  };
+
   /** When the pointer rests on a unit, fetch its file so a click shows it at once (files are small and cached). */
   let prefetchTimer: number | undefined;
   const prefetch = (unitId: string) => {
@@ -114,7 +121,7 @@ async function main(): Promise<void> {
     const unit = units.get(unitId);
     return unit ? cardContent(unit, units, meta, electionFile, getState().view, coloring?.values.get(unitId)) : [];
   };
-  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: click, onOutside: goOneUp, onHover: prefetch, describe }, meta.attribution, meta.geo);
+  const map = new ElectionMap(byId('map'), byId('map-card'), { onSelect: click, onOutside: back, onHover: prefetch, describe }, meta.attribution, meta.geo);
   createSearch(byId('search'), meta, index.units, select);
   const sidebarPanel = byId('sidebar');
   const sidebar = byId('sidebar-content');
@@ -163,8 +170,7 @@ async function main(): Promise<void> {
     if (state.list) return setState({ list: false });
     const target = e.target as HTMLElement | null;
     if (target?.closest('input, select, textarea')) return; // e.g. the search box clears itself
-    if (goOneUp()) return;
-    if (state.unit) setState({ unit: null });
+    back();
   });
 
   const drawControls = () => {
