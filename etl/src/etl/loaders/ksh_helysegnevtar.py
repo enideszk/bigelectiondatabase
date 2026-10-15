@@ -7,13 +7,16 @@ Interim:  data/interim/ksh_helysegnevtar_2026/{settlements,jarasok}.csv
 Units are keyed by the 5-digit KSH settlement code, Budapest districts too (bp_district-<KSH code>).
 Budapest as a whole is the county unit county-01. Járások exist from 2013-01-01: before that a
 settlement's parent is its county. The járás assignment of 2026 is applied from 2013 onwards
-(later changes of a settlement's járás are not modelled yet).
+(later changes of a settlement's járás are not modelled yet). Settlements that belonged to another
+county before (data/reference/settlement_counties.csv, from the 1990–2010 election files) have
+that county as their parent until then.
 
 Requires: reference_regions (counties).
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
@@ -21,7 +24,7 @@ import pandas as pd
 import psycopg
 
 from .. import config
-from ..hu_names import county_key
+from ..hu_names import county_key, name_key
 from ._common import SourceInfo, copy_rows, read_csv, replace_source
 
 SOURCE = SourceInfo(
@@ -44,6 +47,17 @@ INDICATORS = [
     ("area_km2", "Area", "Terület", "km²", 1, "Area as listed in the KSH Helységnévtár 2026 (hectares / 100)."),
     ("dwellings", "Dwellings", "Lakások száma", "dwellings", 0, "Number of dwellings as listed in the KSH Helységnévtár 2026."),
 ]
+
+
+def county_history() -> dict[str, list[tuple[str, date]]]:
+    """data/reference/settlement_counties.csv: settlement name key -> [(earlier county code, until)],
+    oldest first; the settlement belonged to that county before `until`."""
+    history: dict[str, list[tuple[str, date]]] = defaultdict(list)
+    for row in read_csv(config.REPO_ROOT / "data" / "reference" / "settlement_counties.csv"):
+        history[name_key(row["settlement"])].append((row["county_code"], date.fromisoformat(row["valid_to"])))
+    for periods in history.values():
+        periods.sort(key=lambda p: p[1])
+    return dict(history)
 
 
 def clean(raw_dir: Path, interim_dir: Path) -> list[Path]:
@@ -100,13 +114,21 @@ def load(conn: psycopg.Connection, interim_dir: Path) -> dict[str, int]:
     units = [[f"jaras-{j['code']}", "jaras", j["code"], j["name"], None, JARAS_FROM, None] for j in jarasok]
     units += [[f"{s['unit_type']}-{s['code']}", s["unit_type"], s["code"], s["name"], None, None, None] for s in settlements]
 
+    history = county_history()
+    unknown = set(history) - {name_key(s["name"]) for s in settlements}
+    if unknown:
+        raise ValueError(f"settlement_counties.csv names settlements the gazetteer does not have: {sorted(unknown)}")
     parents = [[f"jaras-{j['code']}", f"county-{j['county_code']}", JARAS_FROM, None] for j in jarasok]
     for s in settlements:
         unit_id = f"{s['unit_type']}-{s['code']}"
         if s["unit_type"] == "bp_district":
             parents.append([unit_id, "county-01", None, None])
         else:
-            parents.append([unit_id, f"county-{s['county_code']}", None, JARAS_FROM])
+            start = None
+            for county_code, until in history.get(name_key(s["name"]), []):
+                parents.append([unit_id, f"county-{county_code}", start, until])
+                start = until
+            parents.append([unit_id, f"county-{s['county_code']}", start, JARAS_FROM])
             parents.append([unit_id, f"jaras-{s['jaras_code']}", JARAS_FROM, None])
 
     values = [

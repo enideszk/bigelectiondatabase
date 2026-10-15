@@ -15,7 +15,7 @@ tisza,Tisztelet és Szabadság Párt,TISZA,#33a3dc,
 munkaspart,Magyar Munkáspárt,Munkáspárt,#8b1a1a,
 iszomm,Igen Szolidaritás Magyarországért Mozgalom,ISZOMM,,
 csaladok,Családok Pártja,Családok,,
-miep,Magyar Igazság és Élet Pártja,MIÉP,,
+miep,Magyar Igazság és Élet Pártja,MIÉP,#5d4037,
 megoldas,Megoldás Mozgalom,Megoldás,,
 nep_2022,Normális Élet Pártja,NÉP,,Not the 2014 'NÉP' organisation
 sms,Seres Mária Szövetségesei,SMS,,
@@ -24,7 +24,7 @@ zoldek,Zöldek Pártja,Zöldek,,
 sem,Szegény Emberek Magyarországért Párt,SEM,,
 mcp,Magyarországi Cigánypárt,MCP,,
 osszefogas_part,Összefogás Párt,Összefogás Párt,,Not the 2014 Összefogás alliance
-fkgp,"Független Kisgazda-, Földmunkás- és Polgári Párt",FKGP,,
+fkgp,"Független Kisgazda-, Földmunkás- és Polgári Párt",FKGP,#7cb342,
 unknown,Unknown nominating organisation,?,,Used where the source does not name the organisation
 4k,4K!,4K!,,Minor organisation; added from the NVI files
 a_haza_partja,A Haza Pártja,HP,,Minor organisation; added from the NVI files
@@ -84,7 +84,7 @@ mkszu,MKSZU,MKSZU,,Minor organisation; added from the NVI files
 mnp,MNP,MNP,,Minor organisation; added from the NVI files
 modern_magyarorszag_mozgalom_part,Modern Magyarország Mozgalom Párt,MMMP,,Minor organisation; added from the NVI files
 mrpp,MRPP,MRPP,,Minor organisation; added from the NVI files
-mszdp,MSZDP,MSZDP,,Minor organisation; added from the NVI files
+mszdp,Magyarországi Szociáldemokrata Párt,MSZDP,,
 nemzetegyesito_mozgalom,Nemzetegyesítő Mozgalom,NM,,Minor organisation; added from the NVI files
 nemzeti_egyuttmukodes_es_megbekeles_part,Nemzeti Együttműködés és Megbékélés Párt,NEMP,,Minor organisation; added from the NVI files
 nemzeti_forr_part,Nemzeti Forr.Párt,NF,,Minor organisation; added from the NVI files
@@ -125,3 +125,82 @@ szolidaritas_partja,A Szolidaritás Pártja,Szolidaritás,,Minor organisation; a
 kozepen_allok_partja,Középen Állók Pártja,KÁP,,Minor organisation; added from the NVI candidate register 2026
 nemzetegyesito_szentkorona,Nemzetegyesítő Mozgalom a Szentkorona Országaiért,NMSO,,Minor organisation; added from the NVI candidate register 2026 (perhaps nemzetegyesito_mozgalom under its full name; not confirmed)
 irany_a_jovo_part,IRÁNY a Jövő Párt,IRÁNY,,Minor organisation; added from the NVI candidate register 2026
+mdf,Magyar Demokrata Fórum,MDF,#1b5e20,
+szdsz,Szabad Demokraták Szövetsége,SZDSZ,#2457a6,SZDSZ – a Magyar Liberális Párt from 2001
+agrarszovetseg,Agrárszövetség,ASZ,#c9a227,
+centrum,Összefogás Magyarországért Centrum,Centrum,#8e44ad,Centrum Párt
+mdnp,Magyar Demokrata Néppárt,MDNP,#7fa05a,
+hvk,Hazafias Választási Koalíció,HVK,,Minor organisation; added from the NVI files 1990–2010
+vallalkozok_partja,Vállalkozók Pártja,VP,,LPSZ–Vállalkozók Pártja in 1994
+magyar_neppart,Magyar Néppárt,MNP,,Minor organisation; added from the NVI files 1990–2010
+mzp,Magyarországi Zöld Párt,MZP,,Minor organisation; added from the NVI files 1990–2010
+nkgp,Nemzeti Kisgazda és Polgári Párt,NKgPP,,Minor organisation; added from the NVI files 1990–2010
+szkk,Somogyi Keresztény Koalíció,SZKK,,Minor organisation; added from the NVI files 1990–2010
+mszap,Magyarországi Szövetkezeti és Agrárpárt,MSZAP,,Minor organisation; added from the NVI files 1990–2010
+fmdp,Független Magyar Demokrata Párt,FMDP,,Minor organisation; added from the NVI files 1990–2010
+szabadsagpart,Szabadságpárt,Szabadságpárt,,Minor organisation; added from the NVI files 1990–2010
+mfp,Magyar Függetlenségi Párt,MFP,,Minor organisation; added from the NVI files 1990–2010
+fszdp,Független Szociáldemokrata Párt,FSZDP,,Minor organisation; added from the NVI files 1990–2010
+szfv,"Szövetség a Faluért, a Vidékért",SZFV,,Minor organisation; added from the NVI files 1990–2010
+fedisz_tedisz,FEDISZ Kiskunfélegyháza – TEDISZ Kiskunmajsa,FEDISZ–TEDISZ,,Minor organisation; added from the NVI files 1990–2010 (local organisations)
+szent_korona_tarsasag,Szent Korona Társaság,SZKT,,Minor organisation; added from the NVI files 1990–2010
+nemzedekek_partja,Nemzedékek Pártja,NP,,"Minor organisation; added from the NVI files 1990–2010 ('NEMZEDÉKEK PÁRTJA,NYUG.ÉS CSAL' in 1990)"
+ttvsz,Természet- és Társadalomvédők Szövetsége,TTVSZ,,Minor organisation; added from the NVI files 1990–2010 ('TERM. ÉS TÁRS.VÉDŐK SZÖV.' in 1990)
+mddcp,Magyar Dolgozók Demokratikus Centrum Pártja,MDDCP,,Minor organisation; added from the NVI files 1990–2010 ('MAGYAR DOLG.DEM.CENTRUM PÁRT' in 1990)
+vmp,Vidéki Magyarországért Párt,VMP,,Minor organisation; added from the NVI files 1990–2010
+mcszdp,Magyar Cigányok Szociáldemokrata Pártja,MCSZDP,,Minor organisation; added from the NVI files 1990–2010
+kelet_nepe_part,Kelet Népe Párt – Kereszténydemokraták,KNP,,Minor organisation; added from the NVI files 1990–2010
+koztarsasag_part,Köztársaság Párt,KP,,Minor organisation; added from the NVI files 1990–2010
+ekgp,Egyesült Kisgazdapárt,EKGP,,Minor organisation; added from the NVI files 1990–2010
+ndsz,Nemzeti Demokrata Szövetség,NDSZ,,Minor organisation; added from the NVI files 1990–2010
+kiegyezes_kisgazdapart,Kiegyezés Kisgazdapárt,KKGP,,Minor organisation; added from the NVI files 1990–2010
+konzervativ_part,Konzervatív Párt,Konzervatív Párt,,Minor organisation; added from the NVI files 1990–2010
+piacpart,Piacpárt,Piacpárt,,Minor organisation; added from the NVI files 1990–2010
+zold_alternativa,Zöld Alternatíva,ZA,,Minor organisation; added from the NVI files 1990–2010
+csp,Cigányok Szolidaritási Pártja,CSP,,Minor organisation; added from the NVI files 1990–2010
+demokrata_koalicio_1994,Demokrata Koalíció,DEKO,,Minor organisation; added from the NVI files 1990–2010 (1994; not the Demokratikus Koalíció of 2011)
+csaladi_szovetseg,Családi Szövetség,CSSZ,,Minor organisation; added from the NVI files 1990–2010
+tkgp,Történelmi Kisgazdapárt,TKGP,,Minor organisation; added from the NVI files 1990–2010
+nyugdijasok_partja,Nyugdíjasok Pártja,NYP,,Minor organisation; added from the NVI files 1990–2010
+szocdem_part,Szocdem Párt,Szocdem,,Minor organisation; added from the NVI files 1990–2010
+demokrata_part_1994,Demokrata Párt,DP,,Minor organisation; added from the NVI files 1990–2010 (1994; not the Demokrata Párt of 2014)
+mszmp_1993,Magyar Szocialista Munkáspárt (1993),MSZMP,,Refounded in 1993; the MSZMP of 1990 is the Munkáspárt (munkaspart)
+magyar_erdek_partja,A Magyar Érdek Pártja,MÉP,,Minor organisation; added from the NVI files 1990–2010
+termeszetgyogyaszok,Magyar Természetgyógyászok,MT,,Minor organisation; added from the NVI files 1990–2010
+magyar_anyak_nemzeti_partja,Magyar Anyák Nemzeti Pártja,MANP,,Minor organisation; added from the NVI files 1990–2010
+magyarsagert_vsz,Magyarságért Választási Szövetség,MVSZ,,Minor organisation; added from the NVI files 1990–2010
+tmp,Történelmi Magyarországért Párt,TMP,,Minor organisation; added from the NVI files 1990–2010
+munkanelkuliek_partja,Magyar Munkanélküliek Pártja,MMP,,Minor organisation; added from the NVI files 1990–2010
+nem_part,Nem. Párt,Nem. Párt,,Minor organisation; added from the NVI files 1990–2010 (abbreviated in the 1994 file)
+uj_szovetseg,Új Szövetség,ÚSZ,,Minor organisation; added from the NVI files 1990–2010
+emu,Együtt Magyarországért Unió,EMU,,Minor organisation; added from the NVI files 1990–2010
+nemzetisegi_forum,Nemzetiségi Fórum,NF,,Minor organisation; added from the NVI files 1990–2010
+fpsz,FPSZ,FPSZ,,Minor organisation; added from the NVI files 1990–2010
+fuggetlenek_kozossege,Függetlenek Közössége,FK,,Minor organisation; added from the NVI files 1990–2010
+tarsadalmi_koalicio,Társadalmi Koalíció,TK,,Minor organisation; added from the NVI files 1990–2010
+mcdp,MCDP,MCDP,,Minor organisation; added from the NVI files 1990–2010
+nok_partja,Nők Pártja,NP,,Minor organisation; added from the NVI files 1990–2010
+mnjsz,Magyar Népjóléti Szövetség,MNJSZ,,Minor organisation; added from the NVI files 1990–2010
+foldi_elet_partja,Földi Élet Pártja,FÉP,,Minor organisation; added from the NVI files 1990–2010
+manep,MANÉP,MANÉP,,Minor organisation; added from the NVI files 1990–2010
+uj_baloldal,Új Baloldal,Új Baloldal,,Minor organisation; added from the NVI files 1990–2010
+rkgp,Reform Kisgazdapárt,RKGP,,Minor organisation; added from the NVI files 1990–2010
+mrp,MRP,MRP,,Minor organisation; added from the NVI files 1990–2010
+kisgazdapart_2002,Kisgazdapárt,Kisgazdapárt,,Minor organisation; added from the NVI files 1990–2010 (2002)
+mavep,MAVEP,MAVEP,,Minor organisation; added from the NVI files 1990–2010
+osszefogas_a_fennmaradasert,Összefogás a Fennmaradásért,ÖF,,Minor organisation; added from the NVI files 1990–2010
+mnyp,MNYP,MNYP,,"Minor organisation; added from the NVI files 1990–2010 ('M.NY.P' in 2002, 'M NY P' in 2006)"
+drp,DRP,DRP,,Minor organisation; added from the NVI files 1990–2010
+kpdp,KPDP,KPDP,,Minor organisation; added from the NVI files 1990–2010
+pest1601,PEST1601,PEST1601,,Minor organisation; added from the NVI files 1990–2010 (as written in the 2002 file)
+mvpp,Magyar Vidék és Polgári Párt,MVPP,,Minor organisation; added from the NVI files 1990–2010
+kdp,Kereszténydemokratapárt,KDP,,Minor organisation; added from the NVI files 1990–2010
+mesz,Magyarok Egymásért Szövetsége,MESZ,,Minor organisation; added from the NVI files 1990–2010
+munkaspart_2006,Magyarországi Munkáspárt 2006,MP 2006,,Minor organisation; added from the NVI files 1990–2010
+fknep,"Független Kisgazda-, Nemzeti Egység Párt",FKNEP,,Minor organisation; added from the NVI files 1990–2010
+somogyert,Somogyért,Somogyért,,Minor organisation; added from the NVI files 1990–2010
+osszefogas_megyenkert,Összefogás Megyénkért,ÖM,,Minor organisation; added from the NVI files 1990–2010
+zoldek_szovetsege,Zöldek Szövetsége,ZSZ,,Minor organisation; added from the NVI files 1990–2010
+letalap_part,Létalap Párt,Létalap,,Minor organisation; added from the NVI files 1990–2010
+torgyan_kisgazda_koalicio,Torgyán-Kisgazda-Koalíció,TKK,,Minor organisation; added from the NVI files 1990–2010
+zold_baloldal,Zöld Baloldal,Zöld Baloldal,,Minor organisation; added from the NVI files 1990–2010

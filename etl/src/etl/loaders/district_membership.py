@@ -9,6 +9,9 @@ For every district set:
     of the city, e.g. 1990 Borsod-Abaúj-Zemplén 02 in Miskolc). (The OSM settlement map and the
     district maps come from different base data; slivers of a few percent along borders are not
     real membership.)
+  * a unit that no polling station of a set covers (a settlement founded after the set's last
+    election, e.g. Balatonakarattya for the 1990 set) gets the district holding most of its area,
+    so the districts drawn from the settlements leave no hole.
 
 Run it after the election loaders, and again after loading an election of a district set that had
 no polling-station data before.
@@ -51,11 +54,9 @@ def load(conn: psycopg.Connection, interim_dir: Path) -> dict[str, int]:
         ).rowcount
         spatial = conn.execute(
             """
-            WITH sets_without_stations AS (
-                SELECT ds.district_set_id FROM district_set ds
-                WHERE NOT EXISTS (SELECT 1 FROM polling_station ps
-                                  JOIN electoral_district ed ON ed.unit_id = ps.district_unit_id
-                                  WHERE ed.district_set_id = ds.district_set_id)
+            WITH sets_with_stations AS (
+                SELECT DISTINCT ed.district_set_id
+                FROM polling_station ps JOIN electoral_district ed ON ed.unit_id = ps.district_unit_id
             ),
             local_county AS (
                 SELECT a.unit_id, a.ancestor_id AS county_unit_id
@@ -70,20 +71,23 @@ def load(conn: psycopg.Connection, interim_dir: Path) -> dict[str, int]:
                 JOIN local_county lc ON lc.unit_id = l.unit_id
                 JOIN unit_geometry lg ON lg.unit_id = l.unit_id
                 JOIN electoral_district ed ON ed.county_unit_id = lc.county_unit_id   -- districts never cross counties
-                JOIN sets_without_stations s ON s.district_set_id = ed.district_set_id
                 JOIN unit_geometry dg ON dg.unit_id = ed.unit_id AND dg.geom && lg.geom
                 WHERE l.unit_type IN ('settlement', 'bp_district')
+                  AND NOT EXISTS (SELECT 1 FROM district_membership dm
+                                  JOIN electoral_district d2 ON d2.unit_id = dm.district_unit_id
+                                  WHERE dm.local_unit_id = l.unit_id AND d2.district_set_id = ed.district_set_id)
             ),
             ranked AS (
-                SELECT *, common / NULLIF(local_area, 0) AS share,
-                       row_number() OVER (PARTITION BY local_unit_id, district_set_id ORDER BY common DESC) AS rank,
+                SELECT o.*, common / NULLIF(local_area, 0) AS share, s.district_set_id IS NOT NULL AS has_stations,
+                       row_number() OVER (PARTITION BY local_unit_id, o.district_set_id ORDER BY common DESC) AS rank,
                        row_number() OVER (PARTITION BY district_unit_id ORDER BY common DESC) AS district_rank
-                FROM overlap
+                FROM overlap o
+                LEFT JOIN sets_with_stations s ON s.district_set_id = o.district_set_id
             )
             INSERT INTO district_membership (local_unit_id, district_unit_id, source_id)
             SELECT local_unit_id, district_unit_id, %(sid)s
             FROM ranked
-            WHERE rank = 1 OR district_rank = 1 OR share >= %(min_share)s
+            WHERE rank = 1 OR (NOT has_stations AND (district_rank = 1 OR share >= %(min_share)s))
             """,
             {"sid": source_id, "min_share": MIN_SHARE},
         ).rowcount

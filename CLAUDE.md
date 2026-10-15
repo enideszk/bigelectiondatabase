@@ -16,20 +16,45 @@ database `hu_data` now holds real data only; the fixture lives on in the test da
 
 Loaded so far, in this order (`.\etl load <name>`, order = `LOADERS` in `loaders/__init__.py`):
 `reference_regions` → `ksh_helysegnevtar` → `osm_boundaries_2026` → `oevk_maps` →
-`reference_elections` → `reference_parties` → `nvi_parliament_2014` / `_2018` / `_2022` / `_2026` →
-`district_membership`. Elections loaded: parliamentary 2014–2026 (polling-station level).
+`reference_elections` → `reference_parties` → `nvi_parliament_1990` / `_1994` / `_1998` / `_2002` /
+`_2006` / `_2010` / `_2014` / `_2018` / `_2022` / `_2026` → `district_membership`. Elections
+loaded: parliamentary 1990–2026 (polling-station level; 1990–2010 with both rounds).
 Raw inputs (gitignored) are in `data/raw/`: `valasztasi_eredmenyek_1990-2024/` (all NVI results
 1990–2026, 1.9 GB, each election nested one folder deeper, e.g. `1990_parlamenti/1990_parlamenti/`),
 `ksh_helysegnevtar_2026/`, `magyarorszag_telepulesek_2026/`, `oevk_terkepek/` (district maps).
-`district_membership` derives settlement ↔ district from the polling stations; only district sets
-without station data (1990 so far) fall back to polygon overlap.
+`district_membership` derives settlement ↔ district from the polling stations; a settlement no
+station of a set covers (founded later, e.g. Balatonakarattya for the 1990 set) gets the district
+holding most of its area, and sets without any station data fall back to polygon overlap.
 
-Parliamentary results (`loaders/_nvi_parliament.py`, shared by the four year modules):
+Settlements of the older files (`data/reference/`, both hand-maintained):
+- `settlement_names.csv`: names that are not today's: old spellings (Rábahidvég), renames
+  (Leninváros → Tiszaújváros) and the joint villages of 1990 that split later (Hajdúhadháztéglás,
+  Boglárlelle, …). A split village's votes go to its larger successor; the other shows no data
+  before it existed (as Balatonakarattya in 2014; no lineage modelled yet).
+- `settlement_counties.csv`: settlements that belonged to another county (Bakony villages,
+  Tiszaug, Balatonvilágos, …). `ksh_helysegnevtar` gives them that county as parent until the
+  date given (not in the sources: 1 January after the last election showing the old county), and
+  the election loaders check the file's county against the county on election day.
+
+Parliamentary results (`loaders/_nvi_parliament.py`, shared by the year modules; 1990–2010 are
+cleaned by `loaders/_nvi_parliament_txt.py`):
 - Party names in the files are matched through `data/reference/party_aliases.csv` (alias →
-  `party_ids` joined by `|`, display name, short name, color); parties are in `parties.csv`.
-  An unknown list/organisation name is reported and stored with a generated name/acronym: add
-  an alias row instead of special-casing a loader. Joint lists: EM 2022 = DK|Jobbik|Momentum|
+  `party_ids` joined by `|`, display name, short name, color, `years` = only at these elections,
+  for names that meant different parties: "MAGYAR SZOCIALISTA MUNKÁSPÁRT" is the Munkáspárt in
+  1990, a splinter later; "FÜGGETLEN KISGAZDAPÁRT" is the FKGP 1994–2010); parties are in
+  `parties.csv`. An unknown list/organisation name stops the load: add an alias row instead of
+  special-casing a loader. Joint nominations written "A,B" (2002–2010) resolve part by part.
+  Lists with the same parties are one list of the election (the 20 county lists of 1990–2010 and
+  the spellings of a party's name). Joint lists: Fidesz–MDF 2002, EM 2022 = DK|Jobbik|Momentum|
   MSZP|LMP|Párbeszéd, Összefogás 2014 = MSZP|Együtt|DK|Párbeszéd|MLP.
+- 1990–2010 (pipe-separated cp1250 text, three layouts): interim files carry a `round` column.
+  The 1990–1998 item files have 3,606 spurious rows (a row repeating another's number or name, or
+  off the county's ballot; 2,026 of them in 1994); they are dropped when exactly one choice
+  makes the station add up to its valid votes (`without_repeated_rows`), else the clean fails. Two
+  1994 runoffs have swapped names (`nvi_parliament_1994.SWAPPED`). Checked against NVI's district
+  and county result files: 2002 and 2006 exact; the few remaining differences are stations missing
+  from the item files. 1998: the county list was repeated in Hajdú-Bihar and Szabolcs (round 1
+  under 50% turnout); stored as list round 2, the site's list view shows round 1.
 - Mail votes (levélszavazás) go to unit `special-mail` (child of the country).
 - Nationality lists are stored (`list_kind = 'nationality'`) but hidden in the UI and the winner
   view; list shares use all valid list ballots as the denominator, as the official results do.

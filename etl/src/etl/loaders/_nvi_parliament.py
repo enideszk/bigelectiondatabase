@@ -1,29 +1,36 @@
-"""Shared code for the NVI parliamentary election loaders 2014–2026 (one loader module per election).
+"""Shared code for the NVI parliamentary election loaders 1990–2026 (one loader module per election;
+the 1990–2010 text exports are cleaned by _nvi_parliament_txt).
 
 Every election is first cleaned into the same interim layout, data/interim/nvi_parliament_<year>/:
 
     stations.csv          station, county_code, local_unit_id, number, oevk, is_transfer
-    turnout.csv           station, ballot (list | candidate), registered, voted, valid, invalid
+    turnout.csv           station, [round,] ballot (list | candidate), registered, voted, valid, invalid
                           (station "MAIL" = votes cast by mail: list ballot only, no district)
     lists.csv             position, name, kind (party | nationality)
-    list_votes.csv        station, list_name, votes
+    list_votes.csv        station, [round,] list_name, votes
     candidates.csv        county_code, oevk, position, name, organisation ("?" = not in the source)
-    candidate_votes.csv   station, county_code, oevk, name, organisation, votes
+    candidate_votes.csv   station, [round,] county_code, oevk, name, organisation, votes
 
-and then loaded by load_election(), the same way for every year. `station` is NVI's polling station
-code "MM-TTT-SSS" (NVI county code, NVI settlement code, station number); it joins the interim
-files and is stored as polling_station.nvi_code (shown on the site). Counties are mapped by name (NVI's county numbering changed over time),
-settlements by name (Budapest districts by number) against the KSH Helységnévtár.
+(`round` is 1 where the column is missing: 2014–2026 have one round) and then loaded by
+load_election(), the same way for every year. `station` is NVI's polling station code "MM-TTT-SSS"
+(NVI county code, NVI settlement code, station number); it joins the interim files and is stored as
+polling_station.nvi_code (shown on the site). Counties are mapped by name (NVI's county numbering
+changed over time), settlements by name (Budapest districts by number) against the KSH
+Helységnévtár, through data/reference/settlement_names.csv for names that changed since.
 
 Parties: list names and nominating organisations are looked up in data/reference/party_aliases.csv
-(party ids, display name, short name, colour); a name missing from it stops the load.
-Turnout uses the party-list and candidate ballots. Nationality voters vote on a separate ballot;
-their lists are loaded (kind 'nationality') but their ballot counts are not part of turnout.
+(party ids, display name, short name, colour; `years` limits a row to some elections, for names
+that meant different parties at different times); a name missing from it stops the load. Lists
+with the same parties become one list of the election: the 1990–2010 county lists of a party, and
+the spellings of its name. Turnout uses the party-list and candidate ballots. Nationality voters
+vote on a separate ballot; their lists are loaded (kind 'nationality') but their ballot counts are
+not part of turnout.
 """
 
 from __future__ import annotations
 
 import io
+from collections import Counter, defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -33,6 +40,7 @@ import psycopg
 from .. import config
 from ..hu_names import acronym, bp_district_number, county_key, hu_title, name_key
 from ._common import SourceInfo, copy_rows, read_csv, replace_source
+from .ksh_helysegnevtar import county_history
 
 REFERENCE_DIR = config.REPO_ROOT / "data" / "reference"
 ARCHIVE = Path("valasztasi_eredmenyek_1990-2024")
@@ -49,13 +57,22 @@ class UnmatchedNames(ValueError):
 
 
 class Places:
-    """County and settlement lookups (KSH codes) for one cleaning run; collects what does not match."""
+    """County and settlement lookups (KSH codes) for one cleaning run; collects what does not match.
 
-    def __init__(self, interim_dir: Path):
+    Older files spell some settlements differently or name ones renamed or split since
+    (data/reference/settlement_names.csv: county, name in the file -> settlement of today), and a
+    few settlements belonged to another county then (settlement_counties.csv): the file's county
+    is checked against the county on `day`, the election day."""
+
+    def __init__(self, interim_dir: Path, day: date | None = None):
         self.counties = {county_key(c["name"]): c["code"] for c in read_csv(REFERENCE_DIR / "counties.csv")}
         hnt = read_csv(interim_dir / "ksh_helysegnevtar_2026" / "settlements.csv")
         self.by_name = {name_key(s["name"]): s for s in hnt if s["unit_type"] == "settlement"}
         self.by_district = {bp_district_number(s["name"]): s for s in hnt if s["unit_type"] == "bp_district"}
+        self.renamed = {(r["county_code"], name_key(r["name"])): name_key(r["settlement"])
+                        for r in read_csv(REFERENCE_DIR / "settlement_names.csv")}
+        self.history = county_history()
+        self.day = day
         self.unmatched: set[str] = set()
 
     def county(self, name: str) -> str:
@@ -64,14 +81,26 @@ class Places:
             self.unmatched.add(f"county {name!r}")
         return code or ""
 
+    def county_on_day(self, s: dict) -> str:
+        """The county a settlement of today belonged to on the election day."""
+        if self.day is not None:
+            for code, valid_to in self.history.get(name_key(s["name"]), []):
+                if self.day < valid_to:
+                    return code
+        return s["county_code"]
+
     def settlement(self, name: str, county_code: str) -> str:
         number = bp_district_number(name)
-        s = self.by_district.get(number) if number else self.by_name.get(name_key(name))
+        if number:
+            s = self.by_district.get(number)
+        else:
+            key = name_key(name)
+            s = self.by_name.get(self.renamed.get((county_code, key), key))
         if s is None:
             self.unmatched.add(f"settlement {name!r}")
             return ""
-        if s["county_code"] != county_code:
-            self.unmatched.add(f"settlement {name!r} is in county {s['county_code']}, the file says {county_code}")
+        if self.county_on_day(s) != county_code:
+            self.unmatched.add(f"settlement {name!r} is in county {self.county_on_day(s)}, the file says {county_code}")
         return f"{s['unit_type']}-{s['code']}"
 
     def raise_if_unmatched(self) -> None:
@@ -190,21 +219,53 @@ def _alias_key(text: str) -> str:
     return " ".join(str(text).split()).upper()
 
 
-def load_aliases() -> dict[str, dict]:
-    """party_aliases.csv keyed by the normalised alias."""
-    return {_alias_key(a["alias"]): a for a in read_csv(REFERENCE_DIR / "party_aliases.csv")}
+def load_aliases() -> dict[str, list[dict]]:
+    """party_aliases.csv keyed by the normalised alias (a name can have rows for different years)."""
+    aliases: dict[str, list[dict]] = defaultdict(list)
+    for a in read_csv(REFERENCE_DIR / "party_aliases.csv"):
+        aliases[_alias_key(a["alias"])].append(a)
+    return aliases
 
 
-def unknown_names(interim: Path) -> list[str]:
+def _alias_years(row: dict) -> set[int]:
+    return {int(y) for y in (row.get("years") or "").split("|") if y.strip()}
+
+
+def resolve(aliases: dict[str, list[dict]], name: str, year: int) -> dict | None:
+    """The alias row of a list name or nominating organisation at an election of `year`: the row
+    for that year, else the row for every year. Joint nominations written "A,B" (2002–2010) that are
+    not an alias as a whole resolve part by part; None when something is not an alias."""
+    rows = aliases.get(_alias_key(name), [])
+    row = next((r for r in rows if year in _alias_years(r)), None) or next((r for r in rows if not _alias_years(r)), None)
+    if row is not None or "," not in name:
+        return row
+    parts = [resolve(aliases, part, year) for part in name.split(",") if part.strip()]
+    if not parts or any(p is None for p in parts):
+        return None
+    party_ids = list(dict.fromkeys(pid for p in parts for pid in (p["party_ids"] or "").split("|") if pid))
+    label = "–".join(p["short_name"] for p in parts)
+    return {"alias": name, "party_ids": "|".join(party_ids), "name": label, "short_name": label, "color": parts[0]["color"], "years": None}
+
+
+def election_year(election_id: str) -> int:
+    return int(election_id.rsplit("-", 1)[1])
+
+
+def unknown_names(interim: Path, year: int) -> list[str]:
     """List names and organisations of an election missing from party_aliases.csv."""
     aliases = load_aliases()
     names = {r["name"] for r in read_csv(interim / "lists.csv") if r["kind"] == "party"}
     names |= {r["organisation"] for r in read_csv(interim / "candidates.csv")}
-    return sorted(n for n in names if _alias_key(n) not in aliases)
+    return sorted(n for n in names if resolve(aliases, n, year) is None)
+
+
+def _round(row: dict) -> int:
+    return int(row.get("round") or 1)
 
 
 def load_election(conn: psycopg.Connection, interim: Path, source: SourceInfo, election_id: str) -> dict[str, int]:
-    missing = unknown_names(interim)
+    year = election_year(election_id)
+    missing = unknown_names(interim, year)
     if missing:
         raise UnmatchedNames(f"add these to data/reference/party_aliases.csv: {missing}")
     aliases = load_aliases()
@@ -241,23 +302,36 @@ def load_election(conn: psycopg.Connection, interim: Path, source: SourceInfo, e
         }
         station_unit[MAIL] = "special-mail"
 
-        list_ids = {}
+        # One list per set of parties: the county lists of 1990–2010 and the spellings of a party's
+        # name are one list of the election, named as its most voted spelling.
+        name_votes = Counter()
+        for r in t["list_votes"]:
+            name_votes[r["list_name"]] += int(r["votes"])
+        groups: dict[tuple, list[tuple[dict, dict, list[str]]]] = {}
         for lst in t["lists"]:
-            alias = aliases.get(_alias_key(lst["name"]), {})
-            list_ids[lst["name"]] = conn.execute(
+            alias = resolve(aliases, lst["name"], year) or {}
+            party_ids = [p for p in (alias.get("party_ids") or "").split("|") if p]
+            key = ("parties", tuple(sorted(party_ids))) if lst["kind"] == "party" and party_ids else ("name", lst["name"])
+            groups.setdefault(key, []).append((lst, alias, party_ids))
+        list_ids = {}
+        for members in groups.values():
+            lst, alias, party_ids = max(members, key=lambda m: name_votes[m[0]["name"]])
+            list_id = conn.execute(
                 """
                 INSERT INTO party_list (election_id, name, short_name, list_kind, color, ballot_position, source_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING list_id
                 """,
                 (election_id, alias.get("name") or hu_title(lst["name"]), alias.get("short_name") or acronym(hu_title(lst["name"])),
-                 lst["kind"], alias.get("color"), lst["position"], source_id),
+                 lst["kind"], alias.get("color"), min(int(m[0]["position"]) for m in members), source_id),
             ).fetchone()[0]
-            for position, party in enumerate(filter(None, (alias.get("party_ids") or "").split("|")), start=1):
-                conn.execute("INSERT INTO party_list_member (list_id, party_id, position) VALUES (%s, %s, %s)", (list_ids[lst["name"]], party, position))
+            for position, party in enumerate(party_ids, start=1):
+                conn.execute("INSERT INTO party_list_member (list_id, party_id, position) VALUES (%s, %s, %s)", (list_id, party, position))
+            for m in members:
+                list_ids[m[0]["name"]] = list_id
 
         candidate_ids = {}
         for c in t["candidates"]:
-            alias = aliases[_alias_key(c["organisation"])]
+            alias = resolve(aliases, c["organisation"], year)
             key = (c["county_code"], int(c["oevk"]), c["name"], c["organisation"])
             candidate_ids[key] = conn.execute(
                 """
@@ -268,20 +342,25 @@ def load_election(conn: psycopg.Connection, interim: Path, source: SourceInfo, e
             ).fetchone()[0]
             for position, party in enumerate(filter(None, (alias["party_ids"] or "").split("|")), start=1):
                 conn.execute("INSERT INTO candidate_party (candidate_id, party_id, position) VALUES (%s, %s, %s)", (candidate_ids[key], party, position))
-        counts["party_list"] = len(list_ids)
+        counts["party_list"] = len(groups)
         counts["candidate"] = len(candidate_ids)
 
         counts["turnout"] = copy_rows(
             conn, "turnout", ["election_id", "round_no", "unit_id", "ballot", "registered", "voted", "valid", "invalid", "source_id"],
-            ([election_id, 1, station_unit[r["station"]], r["ballot"], r["registered"], r["voted"], r["valid"], r["invalid"], source_id] for r in t["turnout"]),
+            ([election_id, _round(r), station_unit[r["station"]], r["ballot"], r["registered"], r["voted"], r["valid"], r["invalid"], source_id]
+             for r in t["turnout"]),
         )
+        # summed, as two spellings of a list (now one list) could meet at a station
+        list_votes: Counter = Counter()
+        for r in t["list_votes"]:
+            list_votes[(_round(r), station_unit[r["station"]], list_ids[r["list_name"]])] += int(r["votes"])
         counts["list_result"] = copy_rows(
             conn, "list_result", ["election_id", "round_no", "unit_id", "list_id", "votes", "source_id"],
-            ([election_id, 1, station_unit[r["station"]], list_ids[r["list_name"]], r["votes"], source_id] for r in t["list_votes"]),
+            ([election_id, round_no, unit_id, list_id, votes, source_id] for (round_no, unit_id, list_id), votes in list_votes.items()),
         )
         counts["candidate_result"] = copy_rows(
             conn, "candidate_result", ["election_id", "round_no", "unit_id", "candidate_id", "votes", "source_id"],
-            ([election_id, 1, station_unit[r["station"]], candidate_ids[(r["county_code"], int(r["oevk"]), r["name"], r["organisation"])], r["votes"], source_id]
+            ([election_id, _round(r), station_unit[r["station"]], candidate_ids[(r["county_code"], int(r["oevk"]), r["name"], r["organisation"])], r["votes"], source_id]
              for r in t["candidate_votes"]),
         )
     return counts

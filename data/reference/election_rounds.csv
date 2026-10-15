@@ -1,4 +1,16 @@
 election_id,round_no,round_date
+parliament-1990,1,1990-03-25
+parliament-1990,2,1990-04-08
+parliament-1994,1,1994-05-08
+parliament-1994,2,1994-05-29
+parliament-1998,1,1998-05-10
+parliament-1998,2,1998-05-24
+parliament-2002,1,2002-04-07
+parliament-2002,2,2002-04-21
+parliament-2006,1,2006-04-09
+parliament-2006,2,2006-04-23
+parliament-2010,1,2010-04-11
+parliament-2010,2,2010-04-25
 parliament-2014,1,2014-04-06
 parliament-2018,1,2018-04-08
 parliament-2022,1,2022-04-03

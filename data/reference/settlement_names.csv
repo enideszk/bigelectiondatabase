@@ -1,0 +1,33 @@
+county_code,name,settlement,change,note
+02,Baranyahidvég,Baranyahídvég,spelling,"NVI files 1990–2002 write hid/viz without accent"
+02,Kővágótőttős,Kővágótöttös,spelling,
+04,Lökösháza,Lőkösháza,spelling,
+05,Sajóhidvég,Sajóhídvég,spelling,
+07,Szabadhidvég,Szabadhídvég,spelling,
+13,Galgahéviz,Galgahévíz,spelling,
+13,Hévizgyörk,Hévízgyörk,spelling,
+14,Hosszúviz,Hosszúvíz,spelling,
+14,Keleviz,Kelevíz,spelling,
+14,Vizvár,Vízvár,spelling,
+18,Megyehid,Megyehíd,spelling,
+18,Rábahidvég,Rábahídvég,spelling,
+20,Bucsuszentlászló,Búcsúszentlászló,spelling,
+20,Füzvölgy,Fűzvölgy,spelling,
+20,Óhid,Óhíd,spelling,
+05,Leninváros,Tiszaújváros,rename,Renamed in 1991
+08,Magyarfalva,Harka,rename,Magyarfalva until 1990
+11,Tardosbánya,Tardos,rename,
+18,Gutatőttős,Rábatöttös,rename,
+20,Pátró,Nemespátró,rename,
+20,Rádó,Nemesrádó,rename,
+02,Dobsza,Nagydobsza,split,"Split into Kisdobsza and Nagydobsza after 1990; votes go to the larger one"
+02,Mázaszászvár,Szászvár,split,"Split into Máza and Szászvár after 1990; votes go to the larger one"
+05,Bodrogszegi,Bodrogkisfalud,split,"Split into Bodrogkisfalud and Szegi after 1990; votes go to the larger one"
+08,Bőnyrétalap,Bőny,split,"Split into Bőny and Rétalap after 1990; votes go to the larger one"
+09,Hajdúhadháztéglás,Hajdúhadház,split,"Split into Hajdúhadház and Téglás after 1990; votes go to the larger one"
+11,Almásneszmély,Dunaalmás,split,"Split into Dunaalmás and Neszmély after 1990; votes go to the larger one"
+13,Kerepestarcsa,Kistarcsa,split,"Split into Kerepes and Kistarcsa between 1994 and 1998; votes go to the larger one"
+14,Boglárlelle,Balatonboglár,split,"Split into Balatonboglár and Balatonlelle after 1990; votes go to the larger one"
+15,Varsánygyüre,Nagyvarsány,split,"Split into Gyüre and Nagyvarsány after 1990; votes go to the larger one"
+18,Sömjénmihályfa,Kemenessömjén,split,"Split into Kemenesmihályfa and Kemenessömjén after 1990; votes go to the larger one"
+20,Szemenyecsörnye,Muraszemenye,split,"Split into Csörnyeföld and Muraszemenye after 1990; votes go to the larger one"
